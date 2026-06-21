@@ -36,12 +36,26 @@ export function AppLayout() {
                 <Link to="/manager/coverage/new" className="text-blue-600 hover:underline">
                   New coverage
                 </Link>
+                <Link to="/manager/time-off" className="text-blue-600 hover:underline">
+                  Time off
+                </Link>
+                <Link to="/manager/employee-availability" className="text-blue-600 hover:underline">
+                  Availability
+                </Link>
               </>
             )}
             {role === "EMPLOYEE" && (
-              <Link to="/employee/shifts" className="text-blue-600 hover:underline">
-                My shifts
-              </Link>
+              <>
+                <Link to="/employee/shifts" className="text-blue-600 hover:underline">
+                  My shifts
+                </Link>
+                <Link to="/employee/availability" className="text-blue-600 hover:underline">
+                  Availability
+                </Link>
+                <Link to="/employee/time-off" className="text-blue-600 hover:underline">
+                  Time off
+                </Link>
+              </>
             )}
             <button
               type="button"

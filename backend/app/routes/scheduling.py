@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -13,11 +13,16 @@ from app.models.enums import MembershipRole, ShiftStatus
 from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.scheduling import (
+    ConflictResponse,
+    ConflictSummaryResponse,
     CoverageRequirementCreate,
     CoverageRequirementResponse,
     ShiftAssign,
     ShiftCreate,
     ShiftResponse,
+    ValidateShiftResponse,
+    ValidateWeekResponse,
+    WeekConflictsResponse,
     WeekScheduleResponse,
 )
 from app.services.org_validation import (
@@ -28,6 +33,8 @@ from app.services.org_validation import (
     get_org_shift,
     get_week_end,
 )
+from app.services.scheduling.conflict_detector import Conflict
+from app.services.scheduling.conflict_service import get_shift_conflicts, get_week_conflicts
 
 router = APIRouter(prefix="/organizations/{organization_id}", tags=["scheduling"])
 
@@ -231,3 +238,67 @@ def get_my_shifts(
     ).all()
 
     return [_shift_to_response(shift) for shift in shifts]
+
+
+def _conflict_to_response(conflict: Conflict) -> ConflictResponse:
+    return ConflictResponse(
+        type=conflict.type.value,
+        severity=conflict.severity.value,
+        message=conflict.message,
+        shift_id=conflict.shift_id,
+        employee_id=conflict.employee_id,
+        coverage_requirement_id=conflict.coverage_requirement_id,
+    )
+
+
+@router.get("/schedules/{week_start}/conflicts", response_model=WeekConflictsResponse)
+def get_schedule_conflicts(
+    organization_id: uuid.UUID,
+    week_start: date,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WeekConflictsResponse:
+    require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
+    conflicts, summary = get_week_conflicts(db, organization_id, week_start)
+    return WeekConflictsResponse(
+        week_start=week_start,
+        week_end=get_week_end(week_start),
+        summary=ConflictSummaryResponse(**summary),
+        conflicts=[_conflict_to_response(conflict) for conflict in conflicts],
+    )
+
+
+@router.post("/schedules/{week_start}/validate", response_model=ValidateWeekResponse)
+def validate_week_schedule(
+    organization_id: uuid.UUID,
+    week_start: date,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ValidateWeekResponse:
+    require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
+    conflicts, summary = get_week_conflicts(db, organization_id, week_start)
+    return ValidateWeekResponse(
+        week_start=week_start,
+        week_end=get_week_end(week_start),
+        valid=summary["errors"] == 0,
+        summary=ConflictSummaryResponse(**summary),
+        conflicts=[_conflict_to_response(conflict) for conflict in conflicts],
+    )
+
+
+@router.post("/shifts/{shift_id}/validate", response_model=ValidateShiftResponse)
+def validate_shift(
+    organization_id: uuid.UUID,
+    shift_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ValidateShiftResponse:
+    require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
+    shift = get_org_shift(db, organization_id, shift_id)
+    week_start = shift.shift_date - timedelta(days=shift.shift_date.weekday())
+    conflicts = get_shift_conflicts(db, organization_id, week_start, shift_id)
+    return ValidateShiftResponse(
+        shift_id=shift_id,
+        valid=not any(conflict.severity.value == "ERROR" for conflict in conflicts),
+        conflicts=[_conflict_to_response(conflict) for conflict in conflicts],
+    )

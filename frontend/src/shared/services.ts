@@ -1,13 +1,18 @@
 import { apiRequest } from "./api";
 import type {
+  AvailabilityWindow,
   CoverageRequirement,
   Employee,
   JobRole,
   Location,
   OrganizationMembership,
   Shift,
+  TimeOffRequest,
   TokenResponse,
   User,
+  ValidateShiftResult,
+  ValidateWeekResult,
+  WeekConflicts,
   WeekSchedule,
 } from "../types";
 
@@ -120,6 +125,106 @@ export const schedulingApi = {
     apiRequest<Shift[]>(
       `/organizations/${orgId}/my-shifts?week_start=${weekStart}`,
       {},
+      token,
+    ),
+
+  weekConflicts: (orgId: string, weekStart: string, token: string) =>
+    apiRequest<WeekConflicts>(`/organizations/${orgId}/schedules/${weekStart}/conflicts`, {}, token),
+
+  validateWeek: (orgId: string, weekStart: string, token: string) =>
+    apiRequest<ValidateWeekResult>(`/organizations/${orgId}/schedules/${weekStart}/validate`, {
+      method: "POST",
+    }, token),
+
+  validateShift: (orgId: string, shiftId: string, token: string) =>
+    apiRequest<ValidateShiftResult>(`/organizations/${orgId}/shifts/${shiftId}/validate`, {
+      method: "POST",
+    }, token),
+};
+
+export const availabilityApi = {
+  create: (
+    orgId: string,
+    token: string,
+    body: { day_of_week: number; start_time: string; end_time: string },
+  ) =>
+    apiRequest<AvailabilityWindow>(`/organizations/${orgId}/availability`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
+
+  mine: (orgId: string, token: string) =>
+    apiRequest<AvailabilityWindow[]>(`/organizations/${orgId}/availability/me`, {}, token),
+
+  forEmployee: (orgId: string, employeeId: string, token: string) =>
+    apiRequest<AvailabilityWindow[]>(
+      `/organizations/${orgId}/employees/${employeeId}/availability`,
+      {},
+      token,
+    ),
+
+  update: (
+    orgId: string,
+    windowId: string,
+    token: string,
+    body: { day_of_week?: number; start_time?: string; end_time?: string },
+  ) =>
+    apiRequest<AvailabilityWindow>(`/organizations/${orgId}/availability/${windowId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }, token),
+
+  remove: (orgId: string, windowId: string, token: string) =>
+    apiRequest<void>(`/organizations/${orgId}/availability/${windowId}`, {
+      method: "DELETE",
+    }, token),
+};
+
+export const timeOffApi = {
+  create: (
+    orgId: string,
+    token: string,
+    body: { start_date: string; end_date: string; reason?: string },
+  ) =>
+    apiRequest<TimeOffRequest>(`/organizations/${orgId}/time-off-requests`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
+
+  mine: (orgId: string, token: string) =>
+    apiRequest<TimeOffRequest[]>(
+      `/organizations/${orgId}/time-off-requests/me`,
+      {},
+      token,
+    ),
+
+  list: (orgId: string, token: string, status?: string) => {
+    const query = status ? `?status=${status}` : "";
+    return apiRequest<TimeOffRequest[]>(
+      `/organizations/${orgId}/time-off-requests${query}`,
+      {},
+      token,
+    );
+  },
+
+  approve: (orgId: string, requestId: string, token: string) =>
+    apiRequest<TimeOffRequest>(
+      `/organizations/${orgId}/time-off-requests/${requestId}/approve`,
+      { method: "PATCH" },
+      token,
+    ),
+
+  reject: (orgId: string, requestId: string, token: string) =>
+    apiRequest<TimeOffRequest>(
+      `/organizations/${orgId}/time-off-requests/${requestId}/reject`,
+      { method: "PATCH" },
+      token,
+    ),
+
+  cancel: (orgId: string, requestId: string, token: string) =>
+    apiRequest<TimeOffRequest>(
+      `/organizations/${orgId}/time-off-requests/${requestId}/cancel`,
+      { method: "PATCH" },
       token,
     ),
 };

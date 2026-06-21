@@ -3,9 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routes.auth import router as auth_router
+from app.routes.availability import router as availability_router
 from app.routes.organization_resources import router as organization_resources_router
 from app.routes.organizations import router as organizations_router
 from app.routes.scheduling import router as scheduling_router
+from app.routes.time_off import router as time_off_router
 
 app = FastAPI(title=settings.app_name)
 
@@ -21,6 +23,8 @@ app.include_router(auth_router)
 app.include_router(organizations_router)
 app.include_router(organization_resources_router)
 app.include_router(scheduling_router)
+app.include_router(availability_router)
+app.include_router(time_off_router)
 
 
 @app.get("/health")

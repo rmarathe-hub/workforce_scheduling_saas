@@ -50,3 +50,13 @@ class Organization(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    availability_windows: Mapped[list["AvailabilityWindow"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    time_off_requests: Mapped[list["TimeOffRequest"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

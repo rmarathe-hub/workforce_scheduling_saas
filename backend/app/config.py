@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
     frontend_url: str = "http://localhost:5173"
+    max_weekly_hours: float = 40
 
 
 settings = Settings()

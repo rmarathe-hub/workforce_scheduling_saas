@@ -50,23 +50,12 @@ def test_unauthenticated_create_shift_returns_401(client: TestClient, org_id: st
 def test_employee_cannot_create_coverage_requirement(
     client: TestClient, org_id: str, auth_headers: dict[str, str], employee_in_org: dict[str, str]
 ) -> None:
-    location_id = client.post(
-        f"/organizations/{org_id}/locations",
-        headers=auth_headers,
-        json={"name": "Main"},
-    ).json()["id"]
-    role_id = client.post(
-        f"/organizations/{org_id}/job-roles",
-        headers=auth_headers,
-        json={"name": "Cashier"},
-    ).json()["id"]
-
     response = client.post(
         f"/organizations/{org_id}/coverage-requirements",
         headers=employee_in_org["headers"],
         json={
-            "location_id": location_id,
-            "job_role_id": role_id,
+            "location_id": employee_in_org["location_id"],
+            "job_role_id": employee_in_org["job_role_id"],
             "shift_date": SHIFT_DATE,
             "week_start": WEEK_START,
             "start_time": "09:00:00",
@@ -105,22 +94,12 @@ def test_employee_cannot_assign_shift(
     auth_headers: dict[str, str],
     employee_in_org: dict[str, str],
 ) -> None:
-    location_id = client.post(
-        f"/organizations/{org_id}/locations",
-        headers=auth_headers,
-        json={"name": "Main"},
-    ).json()["id"]
-    role_id = client.post(
-        f"/organizations/{org_id}/job-roles",
-        headers=auth_headers,
-        json={"name": "Cashier"},
-    ).json()["id"]
     shift_id = client.post(
         f"/organizations/{org_id}/shifts",
         headers=auth_headers,
         json={
-            "location_id": location_id,
-            "job_role_id": role_id,
+            "location_id": employee_in_org["location_id"],
+            "job_role_id": employee_in_org["job_role_id"],
             "shift_date": SHIFT_DATE,
             "start_time": "09:00:00",
             "end_time": "17:00:00",

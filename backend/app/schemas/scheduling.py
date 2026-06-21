@@ -89,3 +89,40 @@ class WeekScheduleResponse(BaseModel):
     week_end: date
     coverage_requirements: list[CoverageRequirementResponse]
     shifts: list[ShiftResponse]
+
+
+class ConflictResponse(BaseModel):
+    type: str
+    severity: str
+    message: str
+    shift_id: uuid.UUID | None = None
+    employee_id: uuid.UUID | None = None
+    coverage_requirement_id: uuid.UUID | None = None
+
+
+class ConflictSummaryResponse(BaseModel):
+    total: int
+    errors: int
+    warnings: int
+    info: int
+
+
+class WeekConflictsResponse(BaseModel):
+    week_start: date
+    week_end: date
+    summary: ConflictSummaryResponse
+    conflicts: list[ConflictResponse]
+
+
+class ValidateWeekResponse(BaseModel):
+    week_start: date
+    week_end: date
+    valid: bool
+    summary: ConflictSummaryResponse
+    conflicts: list[ConflictResponse]
+
+
+class ValidateShiftResponse(BaseModel):
+    shift_id: uuid.UUID
+    valid: bool
+    conflicts: list[ConflictResponse]
