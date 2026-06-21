@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { ManagerSetupPanel } from "../components/ManagerSetupPanel";
-import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../lib/dates";
-import { resourceApi, schedulingApi } from "../lib/services";
+import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../shared/dates";
+import { resourceApi, schedulingApi } from "../shared/services";
 import type { CoverageRequirement, Shift } from "../types";
 
 export function ManagerSchedulePage() {

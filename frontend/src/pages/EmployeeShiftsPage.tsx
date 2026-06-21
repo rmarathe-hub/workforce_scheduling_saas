@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
-import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../lib/dates";
-import { schedulingApi } from "../lib/services";
+import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../shared/dates";
+import { schedulingApi } from "../shared/services";
 
 export function EmployeeShiftsPage() {
   const { organization, token } = useAuth();

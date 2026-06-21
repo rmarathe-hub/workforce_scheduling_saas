@@ -6,9 +6,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 import { useAuth } from "../context/AuthContext";
-import { ApiError } from "../lib/api";
-import { formatDate, getMonday } from "../lib/dates";
-import { resourceApi, schedulingApi } from "../lib/services";
+import { ApiError } from "../shared/api";
+import { formatDate, getMonday } from "../shared/dates";
+import { resourceApi, schedulingApi } from "../shared/services";
 
 const schema = z.object({
   location_id: z.string().min(1, "Select a location"),

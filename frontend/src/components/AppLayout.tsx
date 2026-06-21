@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { isManagerRole } from "../lib/auth";
+import { isManagerRole } from "../shared/auth";
 
 export function AppLayout() {
   const { user, organization, role, logout } = useAuth();

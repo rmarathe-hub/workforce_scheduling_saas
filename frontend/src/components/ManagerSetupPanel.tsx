@@ -2,8 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
-import { ApiError } from "../lib/api";
-import { resourceApi } from "../lib/services";
+import { resourceApi } from "../shared/services";
 
 interface ManagerSetupPanelProps {
   orgId: string;
@@ -65,7 +64,8 @@ export function ManagerSetupPanel({ orgId, hasLocations, hasJobRoles }: ManagerS
     try {
       await action();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed");
+      const message = err instanceof Error ? err.message : "Something went wrong";
+      setError(message);
     }
   };
 

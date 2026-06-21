@@ -8,8 +8,8 @@ import {
   type ReactNode,
 } from "react";
 
-import { clearToken, getToken, setToken } from "../lib/auth";
-import { authApi, orgApi } from "../lib/services";
+import { clearToken, getToken, setToken } from "../shared/auth";
+import { authApi, orgApi } from "../shared/services";
 import type { MembershipRole, Organization, User } from "../types";
 
 interface AuthContextValue {

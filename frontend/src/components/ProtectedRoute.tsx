@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { isManagerRole } from "../lib/auth";
+import { isManagerRole } from "../shared/auth";
 
 interface ProtectedRouteProps {
   managerOnly?: boolean;

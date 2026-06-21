@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { isManagerRole } from "../lib/auth";
+import { isManagerRole } from "../shared/auth";
 
 export function HomePage() {
   const { token, role, isLoading } = useAuth();
