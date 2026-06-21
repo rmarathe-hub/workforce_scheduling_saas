@@ -72,7 +72,7 @@ export function ManagerSchedulePage() {
     employeesQuery.data?.filter((employee) => employee.membership_role === "EMPLOYEE") ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-testid="dashboard">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Weekly schedule</h1>
@@ -236,6 +236,7 @@ function ShiftRow({
       <td className="py-3">
         {!shift.assignee_id && eligible.length > 0 ? (
           <select
+            data-testid="assign-shift-button"
             className="rounded-md border border-slate-300 px-2 py-1"
             defaultValue=""
             disabled={isAssigning}

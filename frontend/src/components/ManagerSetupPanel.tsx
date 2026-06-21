@@ -71,7 +71,7 @@ export function ManagerSetupPanel({ orgId, hasLocations, hasJobRoles }: ManagerS
 
   if (hasLocations && hasJobRoles) {
     return (
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="add-employee-form">
         <h2 className="text-lg font-medium">Add employee</h2>
         <p className="mt-1 text-sm text-slate-500">Invite someone to assign shifts.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -108,7 +108,7 @@ export function ManagerSetupPanel({ orgId, hasLocations, hasJobRoles }: ManagerS
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         {!hasLocations && (
-          <>
+          <div data-testid="create-location-form" className="flex flex-wrap gap-3">
             <input
               className="rounded-md border border-slate-300 px-3 py-2"
               value={locationName}
@@ -116,15 +116,16 @@ export function ManagerSetupPanel({ orgId, hasLocations, hasJobRoles }: ManagerS
             />
             <button
               type="button"
+              data-testid="create-location-button"
               onClick={() => run(() => locationMutation.mutateAsync())}
               className="rounded-md bg-slate-900 px-4 py-2 text-white"
             >
               Add location
             </button>
-          </>
+          </div>
         )}
         {!hasJobRoles && (
-          <>
+          <div data-testid="create-role-form" className="flex flex-wrap gap-3">
             <input
               className="rounded-md border border-slate-300 px-3 py-2"
               value={roleName}
@@ -132,12 +133,13 @@ export function ManagerSetupPanel({ orgId, hasLocations, hasJobRoles }: ManagerS
             />
             <button
               type="button"
+              data-testid="create-role-button"
               onClick={() => run(() => roleMutation.mutateAsync())}
               className="rounded-md bg-slate-900 px-4 py-2 text-white"
             >
               Add job role
             </button>
-          </>
+          </div>
         )}
       </div>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}

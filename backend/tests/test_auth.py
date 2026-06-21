@@ -1,8 +1,16 @@
 from fastapi.testclient import TestClient
 
 
+def test_health_check(client: TestClient) -> None:
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_register_succeeds(client: TestClient, db) -> None:
     import uuid
+
+    from tests.helpers import cleanup_user
 
     email = f"register-{uuid.uuid4()}@example.com"
     response = client.post(
@@ -21,8 +29,6 @@ def test_register_succeeds(client: TestClient, db) -> None:
     assert data["full_name"] == "New User"
     assert data["is_active"] is True
     assert "id" in data
-
-    from tests.helpers import cleanup_user
 
     cleanup_user(db, data["id"])
 
@@ -62,6 +68,11 @@ def test_me_with_valid_token(client: TestClient, registered_user: dict[str, str]
     assert response.json()["id"] == registered_user["id"]
 
 
+def test_me_without_token_returns_401(client: TestClient) -> None:
+    response = client.get("/auth/me")
+    assert response.status_code == 401
+
+
 def test_me_with_invalid_token_returns_401(client: TestClient) -> None:
     response = client.get(
         "/auth/me",
@@ -79,4 +90,9 @@ def test_login_with_wrong_password_returns_401(
         json={"email": registered_user["email"], "password": "wrongpassword"},
     )
 
+    assert response.status_code == 401
+
+
+def test_organizations_me_without_token_returns_401(client: TestClient) -> None:
+    response = client.get("/organizations/me")
     assert response.status_code == 401

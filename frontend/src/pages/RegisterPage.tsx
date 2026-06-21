@@ -41,27 +41,53 @@ export function RegisterPage() {
       <h1 className="text-2xl font-semibold">Create account</h1>
       <p className="mt-1 text-sm text-slate-500">Start scheduling your team</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+      <form data-testid="register-form" onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Full name</label>
-          <input className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("full_name")} />
+          <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
+            Full name
+          </label>
+          <input
+            id="full_name"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("full_name")}
+          />
           {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Organization</label>
-          <input className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("organization_name")} />
+          <label htmlFor="organization_name" className="mb-1 block text-sm font-medium">
+            Organization
+          </label>
+          <input
+            id="organization_name"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("organization_name")}
+          />
           {errors.organization_name && (
             <p className="mt-1 text-sm text-red-600">{errors.organization_name.message}</p>
           )}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Email</label>
-          <input type="email" className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("email")} />
+          <label htmlFor="email" className="mb-1 block text-sm font-medium">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("email")}
+          />
           {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Password</label>
-          <input type="password" className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("password")} />
+          <label htmlFor="password" className="mb-1 block text-sm font-medium">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("password")}
+          />
           {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}

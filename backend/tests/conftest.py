@@ -1,6 +1,13 @@
+import os
+
+# Use a dedicated test database when configured (never hardcode production URLs).
+if os.getenv("TEST_DATABASE_URL"):
+    os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+
 import uuid
 from collections.abc import Generator
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -63,3 +70,17 @@ def auth_headers(client: TestClient, registered_user: dict[str, str]) -> dict[st
 def org_id(client: TestClient, auth_headers: dict[str, str]) -> str:
     response = client.get("/organizations/me", headers=auth_headers)
     return response.json()[0]["organization"]["id"]
+
+
+@pytest.fixture
+def e2e_api_base_url() -> str:
+    base_url = os.getenv("E2E_API_BASE_URL", "").rstrip("/")
+    if not base_url:
+        pytest.skip("Set E2E_API_BASE_URL to run deployed API smoke tests")
+    return base_url
+
+
+@pytest.fixture
+def e2e_client(e2e_api_base_url: str) -> Generator[httpx.Client, None, None]:
+    with httpx.Client(base_url=e2e_api_base_url, timeout=60.0) as client:
+        yield client

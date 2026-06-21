@@ -39,10 +39,13 @@ export function LoginPage() {
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <p className="mt-1 text-sm text-slate-500">Workforce scheduling for your team</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+      <form data-testid="login-form" onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Email</label>
+          <label htmlFor="login_email" className="mb-1 block text-sm font-medium">
+            Email
+          </label>
           <input
+            id="login_email"
             type="email"
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             {...register("email")}
@@ -50,8 +53,11 @@ export function LoginPage() {
           {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Password</label>
+          <label htmlFor="login_password" className="mb-1 block text-sm font-medium">
+            Password
+          </label>
           <input
+            id="login_password"
             type="password"
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             {...register("password")}

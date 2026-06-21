@@ -91,7 +91,7 @@ export function CreateCoveragePage() {
         </p>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form data-testid="create-coverage-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium">Location</label>
           <select className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("location_id")}>

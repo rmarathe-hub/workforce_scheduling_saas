@@ -106,3 +106,72 @@ Open http://localhost:5173
 2. Register as owner → quick setup: location + job role + employee
 3. Create coverage → add shift → assign employee
 4. Log in as employee → see shift on **My shifts**
+
+## Testing
+
+### Backend (pytest)
+
+Integration tests use FastAPI `TestClient` against your database. Prefer a dedicated test database:
+
+```bash
+cd backend
+source .venv/bin/activate
+export TEST_DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/postgres_test"
+pytest
+```
+
+If `TEST_DATABASE_URL` is unset, tests fall back to `DATABASE_URL` from `.env`.
+
+| Command | Purpose |
+|---------|---------|
+| `pytest` | All local integration tests |
+| `pytest -m "not e2e and not future"` | Skip deployed smoke + future engine placeholders |
+| `pytest -m e2e` | Deployed API smoke tests (requires `E2E_API_BASE_URL`) |
+
+**Deployed API smoke tests:**
+
+```bash
+cd backend
+export E2E_API_BASE_URL="https://workforce-scheduling-api.onrender.com"
+pytest -m e2e
+```
+
+Uses unique `e2e-*@example.com` emails and org names so it does not collide with demo data.
+
+**Environment variables:**
+
+| Variable | Used by | Description |
+|----------|---------|-------------|
+| `TEST_DATABASE_URL` | pytest | Optional separate DB for local tests |
+| `E2E_API_BASE_URL` | pytest `-m e2e` | Deployed Render API base URL |
+
+### Frontend build
+
+```bash
+cd frontend
+npm run build
+```
+
+### Playwright E2E (deployed frontend)
+
+```bash
+cd frontend
+npm install
+npx playwright install chromium
+export E2E_FRONTEND_URL="https://workforce-scheduling-saas.vercel.app"
+npm run test:e2e
+```
+
+Smoke flow: register → manager schedule → quick setup (location + role).
+
+**Environment variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `E2E_FRONTEND_URL` | Deployed Vercel app URL (defaults to `http://localhost:5173`) |
+
+Important UI elements use `data-testid` attributes (`register-form`, `login-form`, `dashboard`, `create-location-button`, etc.) for stable selectors.
+
+### Scheduling engine (Week 2+)
+
+`conflict_detector.py` and `schedule_generator.py` are not implemented yet. Placeholder tests live in `backend/tests/test_scheduling_engine.py` and are marked `future` (skipped until Week 2).
