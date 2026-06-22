@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
 import { availabilityApi, resourceApi } from "../shared/services";
+import type { AvailabilityWindow } from "../types";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -62,7 +63,7 @@ export function ManagerEmployeeAvailabilityPage() {
           )}
           {availabilityQuery.data && availabilityQuery.data.length > 0 && (
             <ul className="mt-4 space-y-2">
-              {availabilityQuery.data.map((window) => (
+              {availabilityQuery.data.map((window: AvailabilityWindow) => (
                 <li
                   key={window.id}
                   className="rounded-md border border-slate-100 px-4 py-3 text-sm"

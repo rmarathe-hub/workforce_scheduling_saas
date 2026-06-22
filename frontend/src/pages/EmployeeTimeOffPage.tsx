@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
 import { timeOffApi } from "../shared/services";
+import type { TimeOffRequest } from "../types";
 
 function formatDate(dateStr: string): string {
   return new Date(`${dateStr}T12:00:00`).toLocaleDateString(undefined, {
@@ -128,7 +129,7 @@ export function EmployeeTimeOffPage() {
         )}
         {requestsQuery.data && requestsQuery.data.length > 0 && (
           <ul className="mt-4 space-y-3">
-            {requestsQuery.data.map((request) => (
+            {requestsQuery.data.map((request: TimeOffRequest) => (
               <li
                 key={request.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-100 px-4 py-3"
