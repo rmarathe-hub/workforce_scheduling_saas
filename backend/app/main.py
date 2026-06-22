@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import VERCEL_PREVIEW_ORIGIN_REGEX, settings
 from app.routes.auth import router as auth_router
 from app.routes.availability import router as availability_router
 from app.routes.organization_resources import router as organization_resources_router
@@ -13,7 +13,8 @@ app = FastAPI(title=settings.app_name)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=settings.cors_allowed_origins,
+    allow_origin_regex=VERCEL_PREVIEW_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
