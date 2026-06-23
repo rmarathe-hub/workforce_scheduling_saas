@@ -60,3 +60,18 @@ class Organization(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    shift_swap_requests: Mapped[list["ShiftSwapRequest"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    audit_logs: Mapped[list["AuditLog"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    employee_documents: Mapped[list["EmployeeDocument"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

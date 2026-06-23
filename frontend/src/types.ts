@@ -195,3 +195,113 @@ export interface TimeOffRequest {
   employee_name?: string | null;
   reviewed_by_name?: string | null;
 }
+
+export type ShiftSwapRequestType = "GIVE_UP" | "SWAP";
+export type ShiftSwapStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+
+export interface ShiftSummary {
+  id: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  assignee_id: string | null;
+  status: string;
+  location_name?: string | null;
+  job_role_name?: string | null;
+}
+
+export interface ShiftSwapRequest {
+  id: string;
+  organization_id: string;
+  requester_id: string;
+  target_employee_id: string | null;
+  original_shift_id: string;
+  requested_shift_id: string | null;
+  request_type: ShiftSwapRequestType;
+  status: ShiftSwapStatus;
+  reason: string | null;
+  decided_by_id: string | null;
+  created_at: string;
+  decided_at: string | null;
+  requester_name?: string | null;
+  target_employee_name?: string | null;
+  decided_by_name?: string | null;
+  original_shift?: ShiftSummary | null;
+  requested_shift?: ShiftSummary | null;
+}
+
+export type AuditAction =
+  | "SHIFT_SWAP_REQUESTED"
+  | "SHIFT_SWAP_APPROVED"
+  | "SHIFT_SWAP_REJECTED"
+  | "SCHEDULE_GENERATED"
+  | "SCHEDULE_PUBLISHED"
+  | "TIME_OFF_APPROVED"
+  | "TIME_OFF_REJECTED";
+
+export interface AuditLogEntry {
+  id: string;
+  organization_id: string;
+  actor_user_id: string;
+  action: AuditAction;
+  entity_type: string;
+  entity_id: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  actor_name?: string | null;
+}
+
+export interface AuditLogList {
+  items: AuditLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export type DocumentType =
+  | "TRAINING_CERTIFICATE"
+  | "FOOD_SAFETY_CERTIFICATE"
+  | "CPR_CERTIFICATE"
+  | "SIGNED_EMPLOYMENT_FORM"
+  | "ID_WORK_AUTHORIZATION";
+
+export interface EmployeeDocument {
+  id: string;
+  organization_id: string;
+  employee_id: string;
+  uploaded_by_user_id: string;
+  document_type: DocumentType;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+  employee_name?: string | null;
+  uploaded_by_name?: string | null;
+}
+
+export interface PresignDownloadResult {
+  download_url: string;
+  expires_in: number;
+  file_name: string;
+  content_type: string;
+}
+
+export interface PresignUploadResult {
+  document_id: string;
+  upload_url: string;
+  s3_key: string;
+  expires_in: number;
+}
+
+export interface DashboardAnalytics {
+  week_start: string;
+  week_end: string;
+  total_employees: number;
+  published_shifts: number;
+  open_shifts: number;
+  pending_time_off: number;
+  pending_shift_swaps: number;
+  conflict_count: number;
+  coverage_fill_rate: number;
+  scheduled_hours: number;
+}

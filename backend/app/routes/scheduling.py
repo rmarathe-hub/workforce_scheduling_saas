@@ -40,6 +40,8 @@ from app.services.scheduling.conflict_detector import Conflict
 from app.services.scheduling.conflict_service import get_shift_conflicts, get_week_conflicts
 from app.services.scheduling.publish_service import derive_week_schedule_status, publish_week_schedule
 from app.services.scheduling.schedule_generator import generate_weekly_schedule
+from app.services.audit_service import log_audit_action
+from app.models.enums import AuditAction
 
 router = APIRouter(prefix="/organizations/{organization_id}", tags=["scheduling"])
 
@@ -197,6 +199,20 @@ def generate_week_schedule(
 ) -> GenerateWeekScheduleResponse:
     require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
     result = generate_weekly_schedule(db, organization_id, week_start)
+    log_audit_action(
+        db,
+        organization_id=organization_id,
+        actor_user_id=current_user.id,
+        action=AuditAction.SCHEDULE_GENERATED,
+        entity_type="schedule",
+        entity_id=organization_id,
+        metadata={
+            "week_start": week_start.isoformat(),
+            "assigned_count": result.assigned_count,
+            "open_shift_count": result.open_shift_count,
+        },
+    )
+    db.commit()
     _, summary = get_week_conflicts(db, organization_id, week_start)
     shifts = _load_week_shifts(db, organization_id, week_start)
 
@@ -242,6 +258,19 @@ def publish_week_schedule_endpoint(
 ) -> PublishWeekScheduleResponse:
     require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
     result = publish_week_schedule(db, organization_id, week_start)
+    log_audit_action(
+        db,
+        organization_id=organization_id,
+        actor_user_id=current_user.id,
+        action=AuditAction.SCHEDULE_PUBLISHED,
+        entity_type="schedule",
+        entity_id=organization_id,
+        metadata={
+            "week_start": week_start.isoformat(),
+            "published_shift_count": result.published_shift_count,
+        },
+    )
+    db.commit()
     return PublishWeekScheduleResponse(
         week_start=result.week_start,
         week_end=result.week_end,

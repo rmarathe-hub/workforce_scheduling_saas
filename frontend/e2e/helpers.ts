@@ -206,6 +206,40 @@ export async function loginAsEmployee(page: Page, employee: EmployeeSession): Pr
   await expect(page.getByTestId("employee-shifts-page")).toBeVisible();
 }
 
+export async function loginAsManager(page: Page, email: string, password = E2E_PASSWORD): Promise<void> {
+  await login(page, email, password);
+  await expect(page).toHaveURL(/\/manager\/schedule/, { timeout: 30_000 });
+  await waitForManagerSchedule(page);
+}
+
+export async function employeeGiveUpFirstShift(page: Page): Promise<void> {
+  await expect(page.getByTestId("employee-shift-card").first()).toBeVisible();
+  await page.getByTestId("give-up-shift-button").first().click();
+  await expect(page.getByText("Swap pending").first()).toBeVisible({ timeout: 30_000 });
+}
+
+export async function managerApproveFirstShiftSwap(page: Page): Promise<void> {
+  await page.goto("/manager/shift-swaps");
+  await expect(page.getByTestId("manager-shift-swaps-page")).toBeVisible();
+  await expect(page.getByTestId("shift-swap-request-card")).toHaveCount(1, { timeout: 30_000 });
+  await page.getByTestId("approve-shift-swap-button").first().click();
+  await expect(page.getByTestId("shift-swaps-empty")).toBeVisible({ timeout: 60_000 });
+}
+
+export async function uploadEmployeeTestDocument(page: Page): Promise<void> {
+  await page.goto("/employee/documents");
+  await expect(page.getByTestId("employee-documents-page")).toBeVisible();
+  await page.getByTestId("employee-document-file-input").setInputFiles("e2e/fixtures/sample-certificate.pdf");
+  await expect(page.getByTestId("document-upload-success")).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId("employee-document-card")).toHaveCount(1);
+}
+
+export async function expectManagerAnalyticsCards(page: Page): Promise<void> {
+  await expect(page.getByTestId("manager-analytics-cards")).toBeVisible();
+  await expect(page.getByTestId("analytics-card-published_shifts")).toBeVisible();
+  await expect(page.getByTestId("analytics-card-coverage_fill_rate")).toBeVisible();
+}
+
 export async function setupGenerateReadySchedule(page: Page, headcount = 1): Promise<SchedulingFixture> {
   const fixture = await createSchedulingFixture(page);
   await createCoverageRequirement(page, {

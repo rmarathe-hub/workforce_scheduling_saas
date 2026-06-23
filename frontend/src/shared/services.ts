@@ -7,6 +7,13 @@ import type {
   Location,
   OrganizationMembership,
   Shift,
+  ShiftSwapRequest,
+  AuditLogList,
+  EmployeeDocument,
+  DashboardAnalytics,
+  PresignDownloadResult,
+  PresignUploadResult,
+  DocumentType,
   TimeOffRequest,
   TokenResponse,
   User,
@@ -247,4 +254,181 @@ export const timeOffApi = {
       { method: "PATCH" },
       token,
     ),
+};
+
+export const shiftSwapApi = {
+  create: (
+    orgId: string,
+    token: string,
+    body: {
+      request_type: string;
+      original_shift_id: string;
+      requested_shift_id?: string;
+      reason?: string;
+    },
+  ) =>
+    apiRequest<ShiftSwapRequest>(`/organizations/${orgId}/shift-swap-requests`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
+
+  mine: (orgId: string, token: string) =>
+    apiRequest<ShiftSwapRequest[]>(
+      `/organizations/${orgId}/shift-swap-requests/me`,
+      {},
+      token,
+    ),
+
+  list: (orgId: string, token: string, status?: string) => {
+    const query = status ? `?status=${status}` : "";
+    return apiRequest<ShiftSwapRequest[]>(
+      `/organizations/${orgId}/shift-swap-requests${query}`,
+      {},
+      token,
+    );
+  },
+
+  approve: (orgId: string, requestId: string, token: string) =>
+    apiRequest<ShiftSwapRequest>(
+      `/organizations/${orgId}/shift-swap-requests/${requestId}/approve`,
+      { method: "PATCH" },
+      token,
+    ),
+
+  reject: (orgId: string, requestId: string, token: string) =>
+    apiRequest<ShiftSwapRequest>(
+      `/organizations/${orgId}/shift-swap-requests/${requestId}/reject`,
+      { method: "PATCH" },
+      token,
+    ),
+
+  cancel: (orgId: string, requestId: string, token: string) =>
+    apiRequest<ShiftSwapRequest>(
+      `/organizations/${orgId}/shift-swap-requests/${requestId}/cancel`,
+      { method: "PATCH" },
+      token,
+    ),
+};
+
+export const analyticsApi = {
+  dashboard: (orgId: string, weekStart: string, token: string) =>
+    apiRequest<DashboardAnalytics>(
+      `/organizations/${orgId}/analytics/dashboard?week_start=${weekStart}`,
+      {},
+      token,
+    ),
+};
+
+export const auditLogApi = {
+  list: (orgId: string, token: string, limit = 50, offset = 0) =>
+    apiRequest<AuditLogList>(
+      `/organizations/${orgId}/audit-logs?limit=${limit}&offset=${offset}`,
+      {},
+      token,
+    ),
+};
+
+const ALLOWED_UPLOAD_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+]);
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+export async function uploadFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+  if (!response.ok) {
+    throw new Error("Upload to S3 failed");
+  }
+}
+
+export const documentsApi = {
+  presignUpload: (
+    orgId: string,
+    token: string,
+    body: {
+      employee_id: string;
+      document_type: DocumentType;
+      file_name: string;
+      content_type: string;
+      size_bytes: number;
+    },
+  ) =>
+    apiRequest<PresignUploadResult>(`/organizations/${orgId}/documents/presign-upload`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
+
+  completeUpload: (
+    orgId: string,
+    token: string,
+    body: {
+      document_id: string;
+      employee_id: string;
+      document_type: DocumentType;
+      file_name: string;
+      s3_key: string;
+      content_type: string;
+      size_bytes: number;
+    },
+  ) =>
+    apiRequest<EmployeeDocument>(`/organizations/${orgId}/documents/complete-upload`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
+
+  listForEmployee: (orgId: string, employeeId: string, token: string) =>
+    apiRequest<EmployeeDocument[]>(
+      `/organizations/${orgId}/employees/${employeeId}/documents`,
+      {},
+      token,
+    ),
+
+  delete: (orgId: string, documentId: string, token: string) =>
+    apiRequest<void>(`/organizations/${orgId}/documents/${documentId}`, {
+      method: "DELETE",
+    }, token),
+
+  getDownloadUrl: (orgId: string, documentId: string, token: string) =>
+    apiRequest<PresignDownloadResult>(
+      `/organizations/${orgId}/documents/${documentId}/download-url`,
+      {},
+      token,
+    ),
+
+  uploadDocument: async (
+    orgId: string,
+    token: string,
+    employeeId: string,
+    documentType: DocumentType,
+    file: File,
+  ): Promise<EmployeeDocument> => {
+    if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
+      throw new Error("Only PDF, JPEG, and PNG files are allowed");
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error("File must be 5MB or smaller");
+    }
+    const presign = await documentsApi.presignUpload(orgId, token, {
+      employee_id: employeeId,
+      document_type: documentType,
+      file_name: file.name,
+      content_type: file.type,
+      size_bytes: file.size,
+    });
+    await uploadFileToPresignedUrl(presign.upload_url, file);
+    return documentsApi.completeUpload(orgId, token, {
+      document_id: presign.document_id,
+      employee_id: employeeId,
+      document_type: documentType,
+      file_name: file.name,
+      s3_key: presign.s3_key,
+      content_type: file.type,
+      size_bytes: file.size,
+    });
+  },
 };

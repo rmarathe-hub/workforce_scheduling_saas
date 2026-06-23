@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
     frontend_url: str = "http://localhost:5173"
     max_weekly_hours: float = 40
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "us-east-1"
+    s3_bucket_name: str = ""
 
     @property
     def cors_allowed_origins(self) -> list[str]:

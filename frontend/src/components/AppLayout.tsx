@@ -39,6 +39,15 @@ export function AppLayout() {
                 <Link to="/manager/time-off" className="text-blue-600 hover:underline">
                   Time off
                 </Link>
+                <Link to="/manager/shift-swaps" className="text-blue-600 hover:underline">
+                  Shift swaps
+                </Link>
+                <Link to="/manager/activity" className="text-blue-600 hover:underline">
+                  Activity
+                </Link>
+                <Link to="/manager/employee-documents" className="text-blue-600 hover:underline">
+                  Documents
+                </Link>
                 <Link to="/manager/employee-availability" className="text-blue-600 hover:underline">
                   Availability
                 </Link>
@@ -54,6 +63,9 @@ export function AppLayout() {
                 </Link>
                 <Link to="/employee/time-off" className="text-blue-600 hover:underline">
                   Time off
+                </Link>
+                <Link to="/employee/documents" className="text-blue-600 hover:underline">
+                  Documents
                 </Link>
               </>
             )}

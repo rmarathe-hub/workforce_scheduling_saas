@@ -7,14 +7,40 @@ if os.getenv("TEST_DATABASE_URL"):
 import uuid
 from collections.abc import Generator
 
+import boto3
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from moto import mock_aws
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.main import app
 from tests.helpers import cleanup_user
+
+
+@pytest.fixture
+def mock_s3(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("S3_BUCKET_NAME", "shiftops-test-bucket")
+
+    from app.config import Settings
+
+    test_settings = Settings()
+    monkeypatch.setattr("app.config.settings", test_settings)
+    monkeypatch.setattr("app.services.s3_service.settings", test_settings)
+
+    from app.services import s3_service
+
+    s3_service.get_s3_client.cache_clear()
+
+    with mock_aws():
+        client = boto3.client("s3", region_name="us-east-1")
+        client.create_bucket(Bucket="shiftops-test-bucket")
+        yield
+        s3_service.get_s3_client.cache_clear()
 
 
 @pytest.fixture

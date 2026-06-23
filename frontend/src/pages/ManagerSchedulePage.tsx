@@ -3,9 +3,10 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { ManagerAnalyticsCards } from "../components/ManagerAnalyticsCards";
 import { ManagerSetupPanel } from "../components/ManagerSetupPanel";
 import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../shared/dates";
-import { resourceApi, schedulingApi } from "../shared/services";
+import { analyticsApi, resourceApi, schedulingApi } from "../shared/services";
 import type {
   Conflict,
   ConflictSeverity,
@@ -98,6 +99,12 @@ export function ManagerSchedulePage() {
     enabled: Boolean(orgId && token),
   });
 
+  const analyticsQuery = useQuery({
+    queryKey: ["analytics", orgId, weekStart],
+    queryFn: () => analyticsApi.dashboard(orgId, weekStart, token!),
+    enabled: Boolean(orgId && token),
+  });
+
   const employeesQuery = useQuery({
     queryKey: ["employees", orgId],
     queryFn: () => resourceApi.employees(orgId, token!),
@@ -119,6 +126,7 @@ export function ManagerSchedulePage() {
   const invalidateSchedule = () => {
     void queryClient.invalidateQueries({ queryKey: ["schedule", orgId, weekStart] });
     void queryClient.invalidateQueries({ queryKey: ["conflicts", orgId, weekStart] });
+    void queryClient.invalidateQueries({ queryKey: ["analytics", orgId, weekStart] });
     setValidateMessage(null);
     setPublishMessage(null);
   };
@@ -265,6 +273,11 @@ export function ManagerSchedulePage() {
           </Link>
         </div>
       </div>
+
+      <ManagerAnalyticsCards
+        analytics={analyticsQuery.data}
+        isLoading={analyticsQuery.isLoading}
+      />
 
       <ManagerSetupPanel
         orgId={orgId}
