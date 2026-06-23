@@ -8,6 +8,9 @@ from app.models.enums import (
     AuditAction,
     DocumentType,
     MembershipRole,
+    NotificationChannel,
+    NotificationStatus,
+    NotificationType,
     ShiftStatus,
     ShiftSwapRequestType,
     ShiftSwapStatus,
@@ -16,6 +19,7 @@ from app.models.enums import (
 from app.models.job_role import JobRole
 from app.models.location import Location
 from app.models.membership import OrganizationMembership
+from app.models.notification import Notification
 from app.models.organization import Organization
 from app.models.shift import Shift
 from app.models.shift_swap_request import ShiftSwapRequest
@@ -34,6 +38,10 @@ __all__ = [
     "JobRole",
     "Location",
     "MembershipRole",
+    "Notification",
+    "NotificationChannel",
+    "NotificationStatus",
+    "NotificationType",
     "Organization",
     "OrganizationMembership",
     "Shift",

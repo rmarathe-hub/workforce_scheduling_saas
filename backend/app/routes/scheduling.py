@@ -42,6 +42,7 @@ from app.services.scheduling.publish_service import derive_week_schedule_status,
 from app.services.scheduling.schedule_generator import generate_weekly_schedule
 from app.services.audit_service import log_audit_action
 from app.models.enums import AuditAction
+from app.services.notification_service import notify_open_shifts_created, notify_schedule_published
 
 router = APIRouter(prefix="/organizations/{organization_id}", tags=["scheduling"])
 
@@ -212,6 +213,12 @@ def generate_week_schedule(
             "open_shift_count": result.open_shift_count,
         },
     )
+    notify_open_shifts_created(
+        db,
+        organization_id=organization_id,
+        week_start=week_start,
+        open_shift_count=result.open_shift_count,
+    )
     db.commit()
     _, summary = get_week_conflicts(db, organization_id, week_start)
     shifts = _load_week_shifts(db, organization_id, week_start)
@@ -258,6 +265,10 @@ def publish_week_schedule_endpoint(
 ) -> PublishWeekScheduleResponse:
     require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
     result = publish_week_schedule(db, organization_id, week_start)
+    shifts = _load_week_shifts(db, organization_id, week_start)
+    assignee_ids = {
+        shift.assignee_id for shift in shifts if shift.assignee_id is not None
+    }
     log_audit_action(
         db,
         organization_id=organization_id,
@@ -269,6 +280,12 @@ def publish_week_schedule_endpoint(
             "week_start": week_start.isoformat(),
             "published_shift_count": result.published_shift_count,
         },
+    )
+    notify_schedule_published(
+        db,
+        organization_id=organization_id,
+        week_start=week_start,
+        assignee_ids=assignee_ids,
     )
     db.commit()
     return PublishWeekScheduleResponse(

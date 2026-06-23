@@ -11,6 +11,8 @@ import type {
   AuditLogList,
   EmployeeDocument,
   DashboardAnalytics,
+  Notification,
+  NotificationList,
   PresignDownloadResult,
   PresignUploadResult,
   DocumentType,
@@ -317,6 +319,21 @@ export const analyticsApi = {
       {},
       token,
     ),
+};
+
+export const notificationsApi = {
+  list: (orgId: string, token: string) =>
+    apiRequest<NotificationList>(`/organizations/${orgId}/notifications/me`, {}, token),
+
+  markRead: (orgId: string, notificationId: string, token: string) =>
+    apiRequest<Notification>(
+      `/organizations/${orgId}/notifications/${notificationId}/read`,
+      { method: "POST" },
+      token,
+    ),
+
+  markAllRead: (orgId: string, token: string) =>
+    apiRequest<void>(`/organizations/${orgId}/notifications/read-all`, { method: "POST" }, token),
 };
 
 export const auditLogApi = {

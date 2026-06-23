@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.dependencies import get_current_user
 from app.auth.permissions import require_min_role
 from app.database import get_db
-from app.models.enums import AuditAction, MembershipRole, TimeOffStatus
+from app.models.enums import AuditAction, MembershipRole, NotificationType, TimeOffStatus
 from app.models.time_off_request import TimeOffRequest
 from app.models.user import User
 from app.schemas.time_off import (
@@ -16,6 +16,7 @@ from app.schemas.time_off import (
     time_off_request_to_response,
 )
 from app.services.audit_service import log_audit_action
+from app.services.notification_service import create_notification
 
 router = APIRouter(prefix="/organizations/{organization_id}", tags=["time-off"])
 
@@ -156,6 +157,16 @@ def approve_time_off_request(
         entity_id=request.id,
         metadata={"employee_id": str(request.employee_id)},
     )
+    create_notification(
+        db,
+        organization_id=organization_id,
+        recipient_user_id=request.employee_id,
+        notification_type=NotificationType.TIME_OFF_APPROVED,
+        title="Time off approved",
+        message="Your time-off request was approved.",
+        entity_type="time_off_request",
+        entity_id=request.id,
+    )
     db.commit()
     return time_off_request_to_response(_load_request(db, request.id))
 
@@ -189,6 +200,16 @@ def reject_time_off_request(
         entity_type="time_off_request",
         entity_id=request.id,
         metadata={"employee_id": str(request.employee_id)},
+    )
+    create_notification(
+        db,
+        organization_id=organization_id,
+        recipient_user_id=request.employee_id,
+        notification_type=NotificationType.TIME_OFF_REJECTED,
+        title="Time off rejected",
+        message="Your time-off request was rejected.",
+        entity_type="time_off_request",
+        entity_id=request.id,
     )
     db.commit()
     return time_off_request_to_response(_load_request(db, request.id))

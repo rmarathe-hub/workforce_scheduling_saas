@@ -9,11 +9,12 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.enums import AuditAction, ShiftStatus, ShiftSwapRequestType, ShiftSwapStatus
+from app.models.enums import AuditAction, NotificationType, ShiftStatus, ShiftSwapRequestType, ShiftSwapStatus
 from app.models.shift import Shift
 from app.models.shift_swap_request import ShiftSwapRequest
 from app.schemas.shift_swap import ShiftSwapRequestCreate
 from app.services.audit_service import log_audit_action
+from app.services.notification_service import create_notification, notify_managers
 from app.services.org_validation import get_org_shift
 from app.services.scheduling.conflict_service import get_week_conflicts
 
@@ -147,6 +148,15 @@ def create_shift_swap_request(
             ),
         },
     )
+    notify_managers(
+        db,
+        organization_id=organization_id,
+        notification_type=NotificationType.SHIFT_SWAP_REQUESTED,
+        title="New shift swap request",
+        message="An employee submitted a shift swap request for your review.",
+        entity_type="shift_swap_request",
+        entity_id=request.id,
+    )
     db.commit()
     return _load_swap_request(db, request.id)
 
@@ -229,6 +239,16 @@ def approve_shift_swap_request(
         entity_id=request.id,
         metadata={"request_type": request.request_type.value},
     )
+    create_notification(
+        db,
+        organization_id=request.organization_id,
+        recipient_user_id=request.requester_id,
+        notification_type=NotificationType.SHIFT_SWAP_APPROVED,
+        title="Shift swap approved",
+        message="Your shift swap request was approved.",
+        entity_type="shift_swap_request",
+        entity_id=request.id,
+    )
     db.commit()
     return _load_swap_request(db, request.id)
 
@@ -255,6 +275,16 @@ def reject_shift_swap_request(
         entity_type="shift_swap_request",
         entity_id=request.id,
         metadata={"request_type": request.request_type.value},
+    )
+    create_notification(
+        db,
+        organization_id=request.organization_id,
+        recipient_user_id=request.requester_id,
+        notification_type=NotificationType.SHIFT_SWAP_REJECTED,
+        title="Shift swap rejected",
+        message="Your shift swap request was rejected.",
+        entity_type="shift_swap_request",
+        entity_id=request.id,
     )
     db.commit()
     return _load_swap_request(db, request.id)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.permissions import require_min_role
 from app.models.employee_document import EmployeeDocument
 from app.models.employee_profile import EmployeeProfile
-from app.models.enums import DocumentType, MembershipRole
+from app.models.enums import DocumentType, MembershipRole, NotificationType
 from app.models.user import User
 from app.schemas.employee_document import (
     CompleteUploadRequest,
@@ -28,6 +28,7 @@ from app.services.s3_service import (
     get_object_size,
     object_exists,
 )
+from app.services.notification_service import notify_managers
 
 ALLOWED_CONTENT_TYPES = frozenset(
     {
@@ -181,6 +182,15 @@ def complete_document_upload(
         size_bytes=actual_size,
     )
     db.add(document)
+    notify_managers(
+        db,
+        organization_id=organization_id,
+        notification_type=NotificationType.DOCUMENT_UPLOADED,
+        title="Employee document uploaded",
+        message=f"A new document ({payload.file_name}) was uploaded.",
+        entity_type="employee_document",
+        entity_id=document.id,
+    )
     db.commit()
     return _load_document(db, document.id)
 

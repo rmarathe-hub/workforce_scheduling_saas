@@ -10,6 +10,7 @@ import { EmployeeShiftsPage } from "./pages/EmployeeShiftsPage";
 import { EmployeeTimeOffPage } from "./pages/EmployeeTimeOffPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { ManagerEmployeeAvailabilityPage } from "./pages/ManagerEmployeeAvailabilityPage";
 import { ManagerActivityLogPage } from "./pages/ManagerActivityLogPage";
 import { ManagerEmployeeDocumentsPage } from "./pages/ManagerEmployeeDocumentsPage";
@@ -29,6 +30,7 @@ export function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
           </Route>
 

@@ -305,3 +305,38 @@ export interface DashboardAnalytics {
   coverage_fill_rate: number;
   scheduled_hours: number;
 }
+
+export type NotificationType =
+  | "SCHEDULE_PUBLISHED"
+  | "TIME_OFF_APPROVED"
+  | "TIME_OFF_REJECTED"
+  | "SHIFT_SWAP_REQUESTED"
+  | "SHIFT_SWAP_APPROVED"
+  | "SHIFT_SWAP_REJECTED"
+  | "DOCUMENT_UPLOADED"
+  | "OPEN_SHIFT_CREATED";
+
+export type NotificationStatus = "PENDING" | "SENT" | "FAILED" | "READ";
+
+export type NotificationChannel = "IN_APP" | "EMAIL";
+
+export interface Notification {
+  id: string;
+  organization_id: string;
+  recipient_user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  status: NotificationStatus;
+  channel: NotificationChannel;
+  entity_type: string | null;
+  entity_id: string | null;
+  created_at: string;
+  sent_at: string | null;
+  read_at: string | null;
+}
+
+export interface NotificationList {
+  items: Notification[];
+  unread_count: number;
+}

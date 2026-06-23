@@ -75,3 +75,8 @@ class Organization(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

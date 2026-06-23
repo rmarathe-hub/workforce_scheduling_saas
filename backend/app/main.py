@@ -7,6 +7,7 @@ from app.routes.audit_log import router as audit_log_router
 from app.routes.auth import router as auth_router
 from app.routes.availability import router as availability_router
 from app.routes.documents import router as documents_router
+from app.routes.notifications import router as notifications_router
 from app.routes.organization_resources import router as organization_resources_router
 from app.routes.organizations import router as organizations_router
 from app.routes.scheduling import router as scheduling_router
@@ -34,6 +35,7 @@ app.include_router(availability_router)
 app.include_router(time_off_router)
 app.include_router(shift_swap_router)
 app.include_router(audit_log_router)
+app.include_router(notifications_router)
 
 
 @app.get("/health")

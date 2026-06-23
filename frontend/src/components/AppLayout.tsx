@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { NotificationBell } from "./NotificationBell";
 import { isManagerRole } from "../shared/auth";
 
 export function AppLayout() {
@@ -28,6 +29,7 @@ export function AppLayout() {
             <span className="text-slate-600">
               {user?.full_name} · {role}
             </span>
+            <NotificationBell />
             {isManagerRole(role ?? "") && (
               <>
                 <Link to="/manager/schedule" className="text-blue-600 hover:underline">
