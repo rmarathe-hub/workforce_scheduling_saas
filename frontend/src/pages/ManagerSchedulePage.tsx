@@ -6,7 +6,14 @@ import { useAuth } from "../context/AuthContext";
 import { ManagerSetupPanel } from "../components/ManagerSetupPanel";
 import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../shared/dates";
 import { resourceApi, schedulingApi } from "../shared/services";
-import type { Conflict, ConflictSeverity, CoverageRequirement, Shift } from "../types";
+import type {
+  Conflict,
+  ConflictSeverity,
+  CoverageRequirement,
+  GenerateWeekResult,
+  Shift,
+  WeekScheduleStatus,
+} from "../types";
 
 function severityRank(severity: ConflictSeverity): number {
   if (severity === "ERROR") return 3;
@@ -57,11 +64,25 @@ function severityBadgeClass(severity: ConflictSeverity): string {
   return "bg-slate-100 text-slate-700";
 }
 
+function scheduleStatusLabel(status: WeekScheduleStatus): string {
+  if (status === "published") return "Published";
+  if (status === "draft") return "Draft";
+  return "Empty";
+}
+
+function scheduleStatusBadgeClass(status: WeekScheduleStatus): string {
+  if (status === "published") return "bg-green-100 text-green-800";
+  if (status === "draft") return "bg-amber-100 text-amber-800";
+  return "bg-slate-100 text-slate-600";
+}
+
 export function ManagerSchedulePage() {
   const { organization, token } = useAuth();
   const queryClient = useQueryClient();
   const [weekStart, setWeekStart] = useState(() => formatDate(getMonday()));
   const [validateMessage, setValidateMessage] = useState<string | null>(null);
+  const [generateSummary, setGenerateSummary] = useState<GenerateWeekResult | null>(null);
+  const [publishMessage, setPublishMessage] = useState<string | null>(null);
 
   const orgId = organization?.id ?? "";
 
@@ -99,6 +120,13 @@ export function ManagerSchedulePage() {
     void queryClient.invalidateQueries({ queryKey: ["schedule", orgId, weekStart] });
     void queryClient.invalidateQueries({ queryKey: ["conflicts", orgId, weekStart] });
     setValidateMessage(null);
+    setPublishMessage(null);
+  };
+
+  const clearWeekMessages = () => {
+    setValidateMessage(null);
+    setGenerateSummary(null);
+    setPublishMessage(null);
   };
 
   const assignMutation = useMutation({
@@ -131,10 +159,30 @@ export function ManagerSchedulePage() {
     },
   });
 
+  const generateWeekMutation = useMutation({
+    mutationFn: () => schedulingApi.generateWeek(orgId, weekStart, token!),
+    onSuccess: async (result) => {
+      setGenerateSummary(result);
+      invalidateSchedule();
+      await queryClient.refetchQueries({ queryKey: ["conflicts", orgId, weekStart] });
+    },
+  });
+
+  const publishWeekMutation = useMutation({
+    mutationFn: () => schedulingApi.publishWeek(orgId, weekStart, token!),
+    onSuccess: (result) => {
+      setPublishMessage(
+        `Published ${result.published_shift_count} shift${result.published_shift_count === 1 ? "" : "s"}.`,
+      );
+      setGenerateSummary(null);
+      invalidateSchedule();
+    },
+  });
+
   const moveWeek = (delta: number) => {
     const monday = getMonday(new Date(`${weekStart}T12:00:00`));
     setWeekStart(formatDate(addDays(monday, delta * 7)));
-    setValidateMessage(null);
+    clearWeekMessages();
   };
 
   const schedule = scheduleQuery.data;
@@ -147,11 +195,38 @@ export function ManagerSchedulePage() {
     [conflicts?.conflicts, schedule?.shifts],
   );
 
+  const hasBlockingErrors = (conflicts?.summary.errors ?? 0) > 0;
+  const scheduleStatus = schedule?.schedule_status ?? "empty";
+  const assignedShifts = schedule?.shifts.filter((shift) => shift.assignee_id) ?? [];
+  const openShifts = schedule?.shifts.filter((shift) => !shift.assignee_id) ?? [];
+  const canPublish =
+    scheduleStatus === "draft" && !hasBlockingErrors && (schedule?.shifts.length ?? 0) > 0;
+
+  const handlePublish = () => {
+    if (!canPublish) return;
+    const confirmed = window.confirm(
+      "Publish this week's schedule? Employees will see their assigned shifts.",
+    );
+    if (confirmed) {
+      publishWeekMutation.mutate();
+    }
+  };
+
   return (
     <div className="space-y-8" data-testid="dashboard">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Weekly schedule</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold">Weekly schedule</h1>
+            {schedule && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium uppercase ${scheduleStatusBadgeClass(scheduleStatus)}`}
+                data-testid="schedule-status-badge"
+              >
+                {scheduleStatusLabel(scheduleStatus)}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500">
             Week of {weekStart}
             {schedule ? ` – ${schedule.week_end}` : ""}
@@ -167,7 +242,10 @@ export function ManagerSchedulePage() {
           </button>
           <button
             type="button"
-            onClick={() => setWeekStart(formatDate(getMonday()))}
+            onClick={() => {
+              setWeekStart(formatDate(getMonday()));
+              clearWeekMessages();
+            }}
             className="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-white"
           >
             This week
@@ -193,6 +271,85 @@ export function ManagerSchedulePage() {
         hasLocations={(locationsQuery.data?.length ?? 0) > 0}
         hasJobRoles={(jobRolesQuery.data?.length ?? 0) > 0}
       />
+
+      <section
+        className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+        data-testid="schedule-actions-panel"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-medium">Schedule actions</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Generate draft shifts from coverage, then publish when conflicts are clear.
+            </p>
+            {publishMessage && (
+              <p className="mt-2 text-sm font-medium text-green-700" data-testid="publish-message">
+                {publishMessage}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid="generate-week-button"
+              onClick={() => generateWeekMutation.mutate()}
+              disabled={generateWeekMutation.isPending || publishWeekMutation.isPending}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {generateWeekMutation.isPending ? "Generating..." : "Generate weekly schedule"}
+            </button>
+            <button
+              type="button"
+              data-testid="publish-week-button"
+              onClick={handlePublish}
+              disabled={!canPublish || publishWeekMutation.isPending || generateWeekMutation.isPending}
+              className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {publishWeekMutation.isPending ? "Publishing..." : "Publish schedule"}
+            </button>
+          </div>
+        </div>
+
+        {generateSummary && (
+          <div
+            className="mt-4 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm"
+            data-testid="generation-summary"
+          >
+            <p className="font-medium text-blue-900">Generation summary</p>
+            <p className="mt-1 text-blue-800">
+              Generated {generateSummary.shifts.length} shift
+              {generateSummary.shifts.length === 1 ? "" : "s"} · Assigned{" "}
+              {generateSummary.assigned_count} · {generateSummary.open_shift_count} open shift
+              {generateSummary.open_shift_count === 1 ? "" : "s"} need coverage
+            </p>
+            {generateSummary.conflict_count > 0 && (
+              <p className="mt-1 text-blue-800" data-testid="generation-conflict-summary">
+                {generateSummary.conflict_summary.errors} error
+                {generateSummary.conflict_summary.errors === 1 ? "" : "s"},{" "}
+                {generateSummary.conflict_summary.warnings} warning
+                {generateSummary.conflict_summary.warnings === 1 ? "" : "s"}
+                {generateSummary.conflict_summary.info > 0
+                  ? `, ${generateSummary.conflict_summary.info} info`
+                  : ""}{" "}
+                — see conflict panel below
+              </p>
+            )}
+            {generateSummary.warnings.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
+                {generateSummary.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {hasBlockingErrors && (
+          <p className="mt-3 text-sm text-red-600" data-testid="publish-blocked-message">
+            Resolve error conflicts before publishing.
+          </p>
+        )}
+      </section>
 
       {conflictsQuery.isLoading && (
         <p className="text-sm text-slate-500" data-testid="conflicts-loading">
@@ -313,9 +470,18 @@ export function ManagerSchedulePage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-medium">Shifts</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-medium">Shifts</h2>
+              {schedule.shifts.length > 0 && (
+                <p className="text-sm text-slate-500" data-testid="shift-counts-summary">
+                  {assignedShifts.length} assigned · {openShifts.length} open
+                </p>
+              )}
+            </div>
             {schedule.shifts.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">No shifts yet. Add coverage, then create shifts.</p>
+              <p className="mt-3 text-sm text-slate-500">
+                No shifts yet. Add coverage, then generate or create shifts manually.
+              </p>
             ) : (
               <div className="mt-4 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
@@ -326,6 +492,7 @@ export function ManagerSchedulePage() {
                       <th className="py-2 pr-4">Role</th>
                       <th className="py-2 pr-4">Location</th>
                       <th className="py-2 pr-4">Assignee</th>
+                      <th className="py-2 pr-4">Status</th>
                       <th className="py-2">Assign</th>
                     </tr>
                   </thead>
@@ -388,8 +555,21 @@ function ShiftRow({
           <span className="ml-2 text-xs text-slate-500">({conflictSeverity.toLowerCase()})</span>
         )}
       </td>
+      <td className="py-3 pr-4">
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            shift.status === "PUBLISHED"
+              ? "bg-green-100 text-green-800"
+              : "bg-slate-100 text-slate-700"
+          }`}
+        >
+          {shift.status}
+        </span>
+      </td>
       <td className="py-3">
-        {!shift.assignee_id && eligible.length > 0 ? (
+        {shift.status === "PUBLISHED" ? (
+          <span className="text-slate-400">—</span>
+        ) : !shift.assignee_id && eligible.length > 0 ? (
           <select
             data-testid="assign-shift-button"
             className="rounded-md border border-slate-300 px-2 py-1"

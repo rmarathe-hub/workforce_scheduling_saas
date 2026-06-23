@@ -93,8 +93,14 @@ export function CreateCoveragePage() {
 
       <form data-testid="create-coverage-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Location</label>
-          <select className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("location_id")}>
+          <label htmlFor="coverage_location_id" className="mb-1 block text-sm font-medium">
+            Location
+          </label>
+          <select
+            id="coverage_location_id"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("location_id")}
+          >
             <option value="">Select location</option>
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
@@ -106,8 +112,14 @@ export function CreateCoveragePage() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Job role</label>
-          <select className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("job_role_id")}>
+          <label htmlFor="coverage_job_role_id" className="mb-1 block text-sm font-medium">
+            Job role
+          </label>
+          <select
+            id="coverage_job_role_id"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("job_role_id")}
+          >
             <option value="">Select role</option>
             {jobRoles.map((role) => (
               <option key={role.id} value={role.id}>
@@ -119,8 +131,15 @@ export function CreateCoveragePage() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Shift date</label>
-          <input type="date" className="w-full rounded-md border border-slate-300 px-3 py-2" {...register("shift_date")} />
+          <label htmlFor="coverage_shift_date" className="mb-1 block text-sm font-medium">
+            Shift date
+          </label>
+          <input
+            id="coverage_shift_date"
+            type="date"
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            {...register("shift_date")}
+          />
           {errors.shift_date && <p className="mt-1 text-sm text-red-600">{errors.shift_date.message}</p>}
         </div>
 
@@ -136,8 +155,11 @@ export function CreateCoveragePage() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Headcount</label>
+          <label htmlFor="coverage_headcount" className="mb-1 block text-sm font-medium">
+            Headcount
+          </label>
           <input
+            id="coverage_headcount"
             type="number"
             min={1}
             className="w-full rounded-md border border-slate-300 px-3 py-2"

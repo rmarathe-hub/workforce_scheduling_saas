@@ -22,7 +22,7 @@ export function EmployeeShiftsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="employee-shifts-page">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">My shifts</h1>
@@ -56,7 +56,7 @@ export function EmployeeShiftsPage() {
       {shiftsQuery.isLoading && <p className="text-slate-600">Loading your shifts...</p>}
 
       {shiftsQuery.data && shiftsQuery.data.length === 0 && (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500" data-testid="employee-shifts-empty">
           No shifts assigned for this week.
         </div>
       )}
@@ -67,6 +67,7 @@ export function EmployeeShiftsPage() {
             <div
               key={shift.id}
               className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+              data-testid="employee-shift-card"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-medium">{formatDayLabel(shift.shift_date)}</h2>

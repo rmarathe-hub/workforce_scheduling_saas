@@ -87,6 +87,7 @@ class ShiftResponse(BaseModel):
 class WeekScheduleResponse(BaseModel):
     week_start: date
     week_end: date
+    schedule_status: str
     coverage_requirements: list[CoverageRequirementResponse]
     shifts: list[ShiftResponse]
 
@@ -126,3 +127,30 @@ class ValidateShiftResponse(BaseModel):
     shift_id: uuid.UUID
     valid: bool
     conflicts: list[ConflictResponse]
+
+
+class GenerateWeekScheduleResponse(BaseModel):
+    week_start: date
+    week_end: date
+    assigned_count: int
+    open_shift_count: int
+    conflict_count: int
+    conflict_summary: ConflictSummaryResponse
+    warnings: list[str]
+    shifts: list[ShiftResponse]
+
+
+class PublishWeekScheduleResponse(BaseModel):
+    week_start: date
+    week_end: date
+    status: str
+    published_shift_count: int
+    warnings: list[str]
+
+
+class WeekScheduleStatusResponse(BaseModel):
+    week_start: date
+    week_end: date
+    schedule_status: str
+    draft_shift_count: int
+    published_shift_count: int

@@ -15,6 +15,41 @@ def login_headers(client: TestClient, email: str, password: str) -> dict[str, st
     return {"Authorization": f"Bearer {token}"}
 
 
+def register_user_with_org(
+    client: TestClient,
+    *,
+    email: str | None = None,
+    password: str = "password123",
+    full_name: str = "Test User",
+    organization_name: str | None = None,
+) -> dict[str, str]:
+    user_email = email or f"user-{uuid.uuid4()}@example.com"
+    org_name = organization_name or f"Org {uuid.uuid4()}"
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": user_email,
+            "password": password,
+            "full_name": full_name,
+            "organization_name": org_name,
+        },
+    )
+    assert response.status_code == 201
+    user_id = response.json()["id"]
+    org_id = client.get(
+        "/organizations/me",
+        headers=login_headers(client, user_email, password),
+    ).json()[0]["organization"]["id"]
+    return {
+        "user_id": user_id,
+        "email": user_email,
+        "password": password,
+        "organization_name": org_name,
+        "org_id": org_id,
+        "headers": login_headers(client, user_email, password),
+    }
+
+
 def add_employee_member(
     client: TestClient,
     org_id: str,

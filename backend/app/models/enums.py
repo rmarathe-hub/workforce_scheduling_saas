@@ -9,6 +9,8 @@ class MembershipRole(str, enum.Enum):
 
 class ShiftStatus(str, enum.Enum):
     DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    CANCELLED = "CANCELLED"
 
 
 class TimeOffStatus(str, enum.Enum):

@@ -60,6 +60,10 @@ export interface CoverageRequirement {
   job_role?: JobRole | null;
 }
 
+export type ShiftStatus = "DRAFT" | "PUBLISHED" | "CANCELLED";
+
+export type WeekScheduleStatus = "empty" | "draft" | "published";
+
 export interface Shift {
   id: string;
   organization_id: string;
@@ -70,7 +74,7 @@ export interface Shift {
   start_time: string;
   end_time: string;
   assignee_id: string | null;
-  status: string;
+  status: ShiftStatus;
   created_at: string;
   location?: Location | null;
   job_role?: JobRole | null;
@@ -80,6 +84,7 @@ export interface Shift {
 export interface WeekSchedule {
   week_start: string;
   week_end: string;
+  schedule_status: WeekScheduleStatus;
   coverage_requirements: CoverageRequirement[];
   shifts: Shift[];
 }
@@ -129,6 +134,33 @@ export interface ValidateShiftResult {
   shift_id: string;
   valid: boolean;
   conflicts: Conflict[];
+}
+
+export interface GenerateWeekResult {
+  week_start: string;
+  week_end: string;
+  assigned_count: number;
+  open_shift_count: number;
+  conflict_count: number;
+  conflict_summary: ConflictSummary;
+  warnings: string[];
+  shifts: Shift[];
+}
+
+export interface PublishWeekResult {
+  week_start: string;
+  week_end: string;
+  status: string;
+  published_shift_count: number;
+  warnings: string[];
+}
+
+export interface WeekScheduleStatusResult {
+  week_start: string;
+  week_end: string;
+  schedule_status: WeekScheduleStatus;
+  draft_shift_count: number;
+  published_shift_count: number;
 }
 
 export interface TokenResponse {

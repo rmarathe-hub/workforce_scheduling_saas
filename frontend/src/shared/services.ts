@@ -12,8 +12,11 @@ import type {
   User,
   ValidateShiftResult,
   ValidateWeekResult,
+  GenerateWeekResult,
+  PublishWeekResult,
   WeekConflicts,
   WeekSchedule,
+  WeekScheduleStatusResult,
 } from "../types";
 
 export const authApi = {
@@ -140,6 +143,23 @@ export const schedulingApi = {
     apiRequest<ValidateShiftResult>(`/organizations/${orgId}/shifts/${shiftId}/validate`, {
       method: "POST",
     }, token),
+
+  generateWeek: (orgId: string, weekStart: string, token: string) =>
+    apiRequest<GenerateWeekResult>(`/organizations/${orgId}/schedules/${weekStart}/generate`, {
+      method: "POST",
+    }, token),
+
+  publishWeek: (orgId: string, weekStart: string, token: string) =>
+    apiRequest<PublishWeekResult>(`/organizations/${orgId}/schedules/${weekStart}/publish`, {
+      method: "POST",
+    }, token),
+
+  weekStatus: (orgId: string, weekStart: string, token: string) =>
+    apiRequest<WeekScheduleStatusResult>(
+      `/organizations/${orgId}/schedules/${weekStart}/status`,
+      {},
+      token,
+    ),
 };
 
 export const availabilityApi = {

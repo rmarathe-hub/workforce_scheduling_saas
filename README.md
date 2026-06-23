@@ -117,16 +117,18 @@ Integration tests use FastAPI `TestClient` against your database. Prefer a dedic
 cd backend
 source .venv/bin/activate
 export TEST_DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/postgres_test"
-pytest
+pytest -m "not future"
 ```
 
 If `TEST_DATABASE_URL` is unset, tests fall back to `DATABASE_URL` from `.env`.
 
 | Command | Purpose |
 |---------|---------|
-| `pytest` | All local integration tests |
-| `pytest -m "not e2e and not future"` | Skip deployed smoke + future engine placeholders |
+| `pytest -m "not future"` | All local backend tests (recommended) |
+| `pytest -m "not e2e and not future"` | Skip deployed API smoke tests |
 | `pytest -m e2e` | Deployed API smoke tests (requires `E2E_API_BASE_URL`) |
+
+**Backend coverage includes:** auth/session, RBAC, multi-tenant isolation, org resources, availability, time-off, scheduling CRUD, schedule generation, conflict detection, publish workflow, and integration flows.
 
 **Deployed API smoke tests:**
 
@@ -135,10 +137,6 @@ cd backend
 export E2E_API_BASE_URL="https://workforce-scheduling-api.onrender.com"
 pytest -m e2e
 ```
-
-Uses unique `e2e-*@example.com` emails and org names so it does not collide with demo data.
-
-**Environment variables:**
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
@@ -152,26 +150,50 @@ cd frontend
 npm run build
 ```
 
-### Playwright E2E (deployed frontend)
+### Playwright E2E (local)
+
+Auto-starts backend + Vite when not already running. Uses `http://localhost:5173` (not `127.0.0.1`) for CORS compatibility.
 
 ```bash
 cd frontend
 npm install
 npx playwright install chromium
-export E2E_FRONTEND_URL="https://workforce-scheduling-saas.vercel.app"
 npm run test:e2e
 ```
 
-Smoke flow: register → manager schedule → quick setup (location + role).
+| Script | Purpose |
+|--------|---------|
+| `npm run test:e2e` | Full local Playwright suite |
+| `npm run test:e2e:headed` | Run with visible browser |
+| `npm run test:e2e:ui` | Playwright UI mode |
+| `npm run test:e2e:smoke` | Production smoke subset only |
+| `npm run test:all` | `build` + full E2E |
 
-**Environment variables:**
+**Playwright coverage includes:** auth (positive/negative), protected routes, owner setup, coverage, generate, publish, conflicts, employee flows, RBAC (both directions), manager time-off/availability, navigation, and employee-published-shift handoff.
+
+### Playwright production smoke
+
+Runs against deployed frontend without starting local servers:
+
+```bash
+cd frontend
+export E2E_SMOKE=1
+export E2E_SKIP_WEBSERVER=1
+export E2E_BASE_URL="https://workforce-scheduling-saas.vercel.app"
+npm run test:e2e:smoke
+```
 
 | Variable | Description |
 |----------|-------------|
-| `E2E_FRONTEND_URL` | Deployed Vercel app URL (defaults to `http://localhost:5173`) |
+| `E2E_BASE_URL` / `E2E_FRONTEND_URL` | Frontend URL (defaults to `http://localhost:5173`) |
+| `E2E_SMOKE=1` | Run production smoke project only |
+| `E2E_SKIP_WEBSERVER=1` | Do not auto-start backend/Vite |
 
-Important UI elements use `data-testid` attributes (`register-form`, `login-form`, `dashboard`, `create-location-button`, etc.) for stable selectors.
+### Pre-push checklist
 
-### Scheduling engine (Week 2+)
+1. `cd backend && pytest -m "not future"`
+2. `cd frontend && npm run build`
+3. `cd frontend && npm run test:e2e`
+4. Optional deployed: `pytest -m e2e` and `npm run test:e2e:smoke` with env vars above
 
-`conflict_detector.py` and `schedule_generator.py` are not implemented yet. Placeholder tests live in `backend/tests/test_scheduling_engine.py` and are marked `future` (skipped until Week 2).
+Important UI elements use `data-testid` attributes for stable selectors.

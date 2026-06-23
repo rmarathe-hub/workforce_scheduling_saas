@@ -17,6 +17,8 @@ from app.schemas.scheduling import (
     ConflictSummaryResponse,
     CoverageRequirementCreate,
     CoverageRequirementResponse,
+    GenerateWeekScheduleResponse,
+    PublishWeekScheduleResponse,
     ShiftAssign,
     ShiftCreate,
     ShiftResponse,
@@ -24,6 +26,7 @@ from app.schemas.scheduling import (
     ValidateWeekResponse,
     WeekConflictsResponse,
     WeekScheduleResponse,
+    WeekScheduleStatusResponse,
 )
 from app.services.org_validation import (
     get_assignable_employee,
@@ -35,6 +38,8 @@ from app.services.org_validation import (
 )
 from app.services.scheduling.conflict_detector import Conflict
 from app.services.scheduling.conflict_service import get_shift_conflicts, get_week_conflicts
+from app.services.scheduling.publish_service import derive_week_schedule_status, publish_week_schedule
+from app.services.scheduling.schedule_generator import generate_weekly_schedule
 
 router = APIRouter(prefix="/organizations/{organization_id}", tags=["scheduling"])
 
@@ -70,6 +75,28 @@ def _load_shift(db: Session, shift_id: uuid.UUID) -> Shift:
     )
     assert shift is not None
     return shift
+
+
+def _load_week_shifts(
+    db: Session, organization_id: uuid.UUID, week_start: date
+) -> list[Shift]:
+    week_end = get_week_end(week_start)
+    return list(
+        db.scalars(
+            select(Shift)
+            .where(
+                Shift.organization_id == organization_id,
+                Shift.shift_date >= week_start,
+                Shift.shift_date <= week_end,
+            )
+            .options(
+                selectinload(Shift.location),
+                selectinload(Shift.job_role),
+                selectinload(Shift.assignee),
+            )
+            .order_by(Shift.shift_date, Shift.start_time)
+        ).all()
+    )
 
 
 @router.post(
@@ -151,11 +178,76 @@ def get_week_schedule(
         .order_by(Shift.shift_date, Shift.start_time)
     ).all()
 
+    shift_list = list(shifts)
     return WeekScheduleResponse(
         week_start=week_start,
         week_end=week_end,
+        schedule_status=derive_week_schedule_status(shift_list),
         coverage_requirements=list(requirements),
+        shifts=[_shift_to_response(shift) for shift in shift_list],
+    )
+
+
+@router.post("/schedules/{week_start}/generate", response_model=GenerateWeekScheduleResponse)
+def generate_week_schedule(
+    organization_id: uuid.UUID,
+    week_start: date,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GenerateWeekScheduleResponse:
+    require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
+    result = generate_weekly_schedule(db, organization_id, week_start)
+    _, summary = get_week_conflicts(db, organization_id, week_start)
+    shifts = _load_week_shifts(db, organization_id, week_start)
+
+    return GenerateWeekScheduleResponse(
+        week_start=week_start,
+        week_end=get_week_end(week_start),
+        assigned_count=result.assigned_count,
+        open_shift_count=result.open_shift_count,
+        conflict_count=summary["total"],
+        conflict_summary=ConflictSummaryResponse(**summary),
+        warnings=result.warnings,
         shifts=[_shift_to_response(shift) for shift in shifts],
+    )
+
+
+@router.get("/schedules/{week_start}/status", response_model=WeekScheduleStatusResponse)
+def get_week_schedule_status(
+    organization_id: uuid.UUID,
+    week_start: date,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WeekScheduleStatusResponse:
+    require_min_role(db, organization_id, current_user, MembershipRole.EMPLOYEE)
+    shifts = _load_week_shifts(db, organization_id, week_start)
+    draft_count = sum(1 for shift in shifts if shift.status == ShiftStatus.DRAFT)
+    published_count = sum(1 for shift in shifts if shift.status == ShiftStatus.PUBLISHED)
+
+    return WeekScheduleStatusResponse(
+        week_start=week_start,
+        week_end=get_week_end(week_start),
+        schedule_status=derive_week_schedule_status(shifts),
+        draft_shift_count=draft_count,
+        published_shift_count=published_count,
+    )
+
+
+@router.post("/schedules/{week_start}/publish", response_model=PublishWeekScheduleResponse)
+def publish_week_schedule_endpoint(
+    organization_id: uuid.UUID,
+    week_start: date,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PublishWeekScheduleResponse:
+    require_min_role(db, organization_id, current_user, MembershipRole.MANAGER)
+    result = publish_week_schedule(db, organization_id, week_start)
+    return PublishWeekScheduleResponse(
+        week_start=result.week_start,
+        week_end=result.week_end,
+        status="published",
+        published_shift_count=result.published_shift_count,
+        warnings=result.warnings,
     )
 
 
@@ -228,6 +320,7 @@ def get_my_shifts(
             Shift.assignee_id == current_user.id,
             Shift.shift_date >= week_start,
             Shift.shift_date <= week_end,
+            Shift.status == ShiftStatus.PUBLISHED,
         )
         .options(
             selectinload(Shift.location),

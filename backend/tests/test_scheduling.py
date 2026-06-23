@@ -200,6 +200,20 @@ def test_employee_sees_assigned_shifts_in_my_shifts(
         json={"assignee_id": setup["employee_user_id"]},
     )
 
+    draft_shifts_response = client.get(
+        f"/organizations/{org_id}/my-shifts",
+        headers=setup["employee_headers"],
+        params={"week_start": WEEK_START},
+    )
+    assert draft_shifts_response.status_code == 200
+    assert len(draft_shifts_response.json()) == 0
+
+    publish_response = client.post(
+        f"/organizations/{org_id}/schedules/{WEEK_START}/publish",
+        headers=auth_headers,
+    )
+    assert publish_response.status_code == 200
+
     my_shifts_response = client.get(
         f"/organizations/{org_id}/my-shifts",
         headers=setup["employee_headers"],
@@ -209,6 +223,7 @@ def test_employee_sees_assigned_shifts_in_my_shifts(
     my_shifts = my_shifts_response.json()
     assert len(my_shifts) == 1
     assert my_shifts[0]["id"] == shift_id
+    assert my_shifts[0]["status"] == "PUBLISHED"
 
     cleanup_user(db, setup["employee_user_id"])
 
