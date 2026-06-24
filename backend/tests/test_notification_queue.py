@@ -1,4 +1,4 @@
-"""SQS notification queue tests (Week 5 Day 30)."""
+"""SQS notification queue tests."""
 
 from __future__ import annotations
 

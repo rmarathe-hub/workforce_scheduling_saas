@@ -1,4 +1,4 @@
-"""Shared notification delivery processing for workers and future Lambda."""
+"""Shared notification delivery processing for local workers and AWS Lambda."""
 
 from __future__ import annotations
 
@@ -179,7 +179,7 @@ def process_sqs_message_body(db: Session, body: str) -> NotificationProcessResul
 
 
 def process_sqs_message(db: Session, message: dict[str, Any]) -> NotificationProcessResult:
-    """Process one boto3 SQS message dict. Future Lambda handlers can reuse this."""
+    """Process one boto3 SQS message dict (used by workers and Lambda)."""
     body = message.get("Body", "")
     logger.info("Received SQS message message_id=%s", message.get("MessageId"))
     return process_sqs_message_body(db, body)

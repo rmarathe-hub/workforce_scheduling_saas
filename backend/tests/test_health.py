@@ -1,4 +1,4 @@
-"""Health and readiness endpoint tests (Week 5 Day 34)."""
+"""Health and readiness endpoint tests."""
 
 from unittest.mock import MagicMock
 

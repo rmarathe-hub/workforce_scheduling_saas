@@ -14,6 +14,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.database import SessionLocal
+from app.services.consumer_safety import assert_local_consumer_allowed
 from app.services.notification_processor import ProcessingOutcome, poll_and_process_messages
 from app.services.queue import is_sqs_configured
 
@@ -40,8 +41,14 @@ def main() -> int:
         default=10,
         help="Maximum messages to receive in one poll (default: 10)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow running when ENVIRONMENT=production (emergency only)",
+    )
     args = parser.parse_args()
 
+    assert_local_consumer_allowed(force=args.force)
     if not is_sqs_configured():
         print(
             "SQS is not configured. Set AWS credentials and SQS_NOTIFICATION_QUEUE_URL "

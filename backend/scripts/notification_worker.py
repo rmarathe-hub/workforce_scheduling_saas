@@ -13,6 +13,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.database import SessionLocal
+from app.services.consumer_safety import assert_local_consumer_allowed
 from app.services.notification_processor import poll_and_process_messages
 from app.services.queue import is_sqs_configured
 
@@ -66,6 +67,18 @@ def run_worker_loop() -> int:
 
 
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Poll SQS continuously and deliver in-app notifications (local/dev)."
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow running when ENVIRONMENT=production (emergency only)",
+    )
+    args = parser.parse_args()
+    assert_local_consumer_allowed(force=args.force)
     return run_worker_loop()
 
 

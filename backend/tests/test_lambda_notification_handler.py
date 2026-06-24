@@ -1,4 +1,4 @@
-"""Lambda SQS notification handler tests (Week 6 Day 36)."""
+"""Lambda SQS notification handler tests."""
 
 from __future__ import annotations
 
@@ -163,6 +163,86 @@ def test_hard_failure_reports_batch_item_failure(
 
     assert response["outcomes"] == [ProcessingOutcome.FAILED.value]
     assert response["batchItemFailures"] == [{"itemIdentifier": message_id}]
+
+
+def test_soft_failure_marks_failed_without_batch_item_failure(
+    db: Session,
+    org_id: str,
+    registered_user: dict[str, str],
+    mock_sqs: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    org_uuid = uuid.UUID(org_id)
+    recipient_id = uuid.UUID(registered_user["id"])
+    notification = create_notification(
+        db,
+        organization_id=org_uuid,
+        recipient_user_id=recipient_id,
+        notification_type=NotificationType.SCHEDULE_PUBLISHED,
+        title="Schedule published",
+        message="Week ready.",
+    )
+    db.commit()
+
+    def _raise_delivery_error(*_args, **_kwargs):
+        raise RuntimeError("delivery failed")
+
+    monkeypatch.setattr(
+        "app.services.notification_processor._mark_notification_sent",
+        _raise_delivery_error,
+    )
+
+    response = handle_sqs_event(
+        {
+            "Records": [
+                _sqs_record(
+                    message_id="lambda-soft-failure",
+                    body=json.dumps(build_notification_job_payload(notification)),
+                )
+            ]
+        },
+        None,
+    )
+
+    assert response["outcomes"] == [ProcessingOutcome.FAILED.value]
+    assert "batchItemFailures" not in response
+    db.refresh(notification)
+    assert notification.status == NotificationStatus.FAILED
+
+
+def test_already_delivered_is_idempotent(
+    db: Session,
+    org_id: str,
+    registered_user: dict[str, str],
+    mock_sqs: str,
+) -> None:
+    org_uuid = uuid.UUID(org_id)
+    recipient_id = uuid.UUID(registered_user["id"])
+    notification = create_notification(
+        db,
+        organization_id=org_uuid,
+        recipient_user_id=recipient_id,
+        notification_type=NotificationType.DOCUMENT_UPLOADED,
+        title="Document uploaded",
+        message="New file.",
+    )
+    notification.status = NotificationStatus.SENT
+    db.commit()
+
+    response = handle_sqs_event(
+        {
+            "Records": [
+                _sqs_record(
+                    message_id="lambda-already-sent",
+                    body=json.dumps(build_notification_job_payload(notification)),
+                )
+            ]
+        },
+        None,
+    )
+
+    assert response["outcomes"] == [ProcessingOutcome.ALREADY_DELIVERED.value]
+    assert "batchItemFailures" not in response
 
 
 def test_batch_mixed_success_and_failure(

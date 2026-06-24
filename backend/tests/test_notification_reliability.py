@@ -1,4 +1,4 @@
-"""Notification worker reliability tests (Week 5 Day 31)."""
+"""Notification worker reliability tests."""
 
 from __future__ import annotations
 

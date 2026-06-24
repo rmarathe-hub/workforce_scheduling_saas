@@ -1,6 +1,82 @@
 # Workforce Scheduling SaaS (ShiftOps)
 
-Multi-tenant workforce scheduling SaaS — FastAPI backend + React frontend.
+Multi-tenant workforce scheduling SaaS — FastAPI backend, React frontend, Supabase Postgres, and AWS (S3, SQS, Lambda).
+
+## Architecture
+
+### Deployed stack
+
+| Layer | Service | URL / resource |
+|-------|---------|----------------|
+| Frontend | Vercel | https://workforce-scheduling-saas.vercel.app |
+| API | Render | https://workforce-scheduling-api.onrender.com |
+| Database | Supabase Postgres | Connection via `DATABASE_URL` |
+| Documents | S3 | `shiftops-documents-*` bucket |
+| Notification jobs | SQS | `shiftops-notifications-queue` |
+| Notification consumer | AWS Lambda | `shiftops-notification-consumer` (Python 3.12) |
+
+```mermaid
+flowchart LR
+  subgraph client [Client]
+    Browser[React SPA on Vercel]
+  end
+  subgraph api [API tier]
+    Render[FastAPI on Render]
+  end
+  subgraph data [Data and async]
+    DB[(Supabase Postgres)]
+    S3[(S3 documents)]
+    SQS[SQS notification queue]
+    Lambda[Lambda consumer]
+    DLQ[Dead-letter queue]
+  end
+  Browser -->|HTTPS JWT| Render
+  Render --> DB
+  Render --> S3
+  Render -->|enqueue SEND_NOTIFICATION| SQS
+  SQS --> Lambda
+  Lambda --> DB
+  SQS -.->|max retries| DLQ
+```
+
+**Request path:** browser → Vercel SPA → Render API → Supabase (reads/writes).
+
+**Async notification path:** API creates `PENDING` row → SQS message → Lambda marks `SENT` → bell and `/notifications` show the item.
+
+**Document path:** API issues presigned S3 URLs; uploads go browser → S3 directly.
+
+The API stays on Render. Lambda is **only** the SQS consumer — not a replacement for the HTTP API.
+
+## Portfolio
+
+| Resource | Description |
+|----------|-------------|
+| [Live demo](https://workforce-scheduling-saas.vercel.app) | Production frontend |
+| [docs/DEMO.md](docs/DEMO.md) | 3-minute demo script, resume bullets, screenshot checklist |
+| [docs/COMPLETION.md](docs/COMPLETION.md) | Final sign-off checklist and Week 6 wrap |
+| `./scripts/pre-demo-check.sh` | Health + worker + queue check before interviews |
+
+**Highlight features:** multi-tenant RBAC, schedule generation + conflict detection, publish workflow, time-off and shift swaps, S3 employee documents, async notifications (SQS → Lambda), CI + production smoke tests.
+
+### Repository layout
+
+```
+workforce_scheduling_saas/
+  backend/
+    app/
+      main.py                 # FastAPI app, middleware, routes
+      routes/                 # auth, orgs, scheduling, notifications, …
+      services/
+        notification_processor.py   # shared SQS delivery logic
+        queue.py                    # SQS enqueue
+      lambda_handlers/
+        sqs_notification_handler.py # AWS Lambda entry point
+    scripts/                  # worker, Lambda build, queue validation
+    tests/
+  frontend/                   # React + Vite + Playwright
+  scripts/smoke-production.sh # deployed API + frontend smoke
+  .github/workflows/          # CI
+```
 
 ## Backend
 
@@ -64,19 +140,7 @@ Roles: `OWNER` > `MANAGER` > `EMPLOYEE` (see `app/auth/permissions.py`)
 
 ### Structure
 
-```
-backend/
-  app/
-    main.py          # FastAPI app + CORS + /health
-    config.py        # env settings
-    database.py      # SQLAlchemy session
-    models/          # users
-    routes/auth.py   # register, login, me
-    auth/            # JWT, password hashing, dependencies
-    schemas/         # Pydantic request/response models
-  alembic/           # migrations
-  tests/
-```
+See [Repository layout](#repository-layout) above. Core domains: `routes/` (HTTP), `services/` (business logic), `models/` + Alembic migrations, `lambda_handlers/` (SQS consumer).
 
 ## Frontend (Day 6)
 
@@ -129,7 +193,18 @@ If `TEST_DATABASE_URL` is unset, tests fall back to `DATABASE_URL` from `.env`.
 | `pytest -m "not e2e and not future"` | Skip deployed API smoke tests |
 | `pytest -m e2e` | Deployed API smoke tests (requires `E2E_API_BASE_URL`) |
 
-**Backend coverage includes:** auth/session, RBAC, multi-tenant isolation, org resources, availability, time-off, scheduling CRUD, schedule generation, conflict detection, publish workflow, and integration flows.
+**Backend coverage includes:** auth/session, RBAC, multi-tenant isolation, org resources, availability, time-off, scheduling CRUD, schedule generation, conflict detection, publish workflow, SQS notifications, Lambda handler + delivery pipeline, consumer safety guards, health/readiness, and integration flows.
+
+**Notification / Lambda test subset** (fast, no deployed AWS):
+
+```bash
+cd backend
+pytest tests/test_notification_queue.py \
+  tests/test_notification_reliability.py \
+  tests/test_notification_delivery_pipeline.py \
+  tests/test_lambda_notification_handler.py \
+  tests/test_consumer_safety.py -q
+```
 
 **Deployed API smoke tests:**
 
@@ -173,7 +248,7 @@ npm run test:e2e
 
 **Playwright coverage includes:** auth (positive/negative), protected routes, owner setup, coverage, generate, publish, conflicts, employee flows, RBAC (both directions), manager time-off/availability, navigation, employee-published-shift handoff, and production smoke (notifications + documents pages).
 
-### Playwright production smoke (Day 33)
+### Playwright production smoke
 
 Runs against deployed Vercel + Render without starting local servers. Creates orgs named `Smoke Test Org YYYYMMDD-HHMMSS` so production data is easy to spot.
 
@@ -225,7 +300,7 @@ npm run test:e2e:prod
 3. `cd frontend && npm run test:e2e`
 4. Optional deployed: `./scripts/smoke-production.sh` or `pytest -m e2e` + `npm run test:e2e:prod`
 
-### GitHub Actions CI (Day 32)
+### GitHub Actions CI
 
 Runs automatically on push/PR to `main`:
 
@@ -247,7 +322,7 @@ Playwright in CI needs the same `TEST_DATABASE_URL` secret because the suite aut
 
 Important UI elements use `data-testid` attributes for stable selectors.
 
-## Observability (Day 34)
+## Observability
 
 ### Health and readiness
 
@@ -409,17 +484,41 @@ After code changes, rebuild the zip and upload a new version in the Lambda conso
 | `scripts/build_lambda_package.sh` | Build `dist/lambda_notification_consumer.zip` for AWS |
 | `scripts/invoke_lambda_handler_local.py` | Invoke handler locally with a JSON SQS event |
 | `scripts/validate_sqs_setup.py` | Verify AWS SQS permissions and queue URL |
-| `scripts/notification_worker.py` | Continuous local/dev worker |
-| `scripts/process_notifications_once.py` | One-shot manual queue processing |
+| `scripts/validate_notification_queues.py` | Read-only main queue + DLQ depth check |
+| `scripts/notification_worker.py` | Continuous local/dev worker (blocked when `ENVIRONMENT=production`) |
+| `scripts/process_notifications_once.py` | One-shot manual queue processing (same production guard) |
 
-### Failure handling (Day 31)
+### Single consumer rule
 
-| Scenario | API / DB behavior | SQS message |
-|----------|-------------------|-------------|
+Only **one** process should poll `shiftops-notifications-queue` in production:
+
+| Consumer | When to use |
+|----------|-------------|
+| **AWS Lambda** (`shiftops-notification-consumer`) | Production — always on |
+| `notification_worker.py` | Local dev only (`ENVIRONMENT=development`) |
+| `process_notifications_once.py` | Emergency fallback when Lambda is disabled |
+
+Local scripts **refuse to start** when `ENVIRONMENT=production` and SQS is configured. Use `--force` only for emergency debugging with Lambda disabled.
+
+Check queue health (read-only):
+
+```bash
+cd backend
+python scripts/validate_notification_queues.py
+```
+
+### Failure handling and retries
+
+| Scenario | API / DB behavior | SQS / Lambda behavior |
+|----------|-------------------|------------------------|
 | SQS not configured | Notification marked `SENT` immediately | Not sent |
 | SQS enqueue fails | Notification marked `SENT` immediately (fallback) | Not sent |
-| Invalid queue payload | Logged; message deleted | Deleted |
-| Delivery processing fails | Notification marked `FAILED` with `error_message`, `retry_count` incremented | Deleted |
-| DB unavailable while marking `FAILED` | Notification stays `PENDING` | Left on queue for retry |
+| Invalid queue payload | Logged | Message deleted (success from Lambda) |
+| Delivery fails, `FAILED` row saved | `FAILED` + `error_message`, `retry_count` incremented | Message deleted |
+| Delivery fails, cannot save `FAILED` | Stays `PENDING` | Lambda returns `batchItemFailures` → SQS retries |
+| Duplicate delivery after `SENT` | No change (`ALREADY_DELIVERED`) | Message deleted |
+| Retries exhausted | Row may stay `FAILED` or `PENDING` | Message moves to **DLQ** (check with `validate_notification_queues.py`) |
 
-Failed deliveries store `error_message` and `retry_count` on the notification row for debugging.
+**Lambda retry flow:** visibility timeout 120s, Lambda timeout 60s, partial batch failures enabled. A failed record is retried without re-processing successful records in the same batch.
+
+Failed deliveries store `error_message` and `retry_count` on the notification row for debugging. An empty DLQ under normal traffic means retries are succeeding or poison messages are not accumulating.
