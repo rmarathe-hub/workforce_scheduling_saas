@@ -8,7 +8,11 @@ VERCEL_PREVIEW_ORIGIN_REGEX = r"https://.*\.vercel\.app"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_name: str = "Workforce Scheduling SaaS"
     environment: str = "development"

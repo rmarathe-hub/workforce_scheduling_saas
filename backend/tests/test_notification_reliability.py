@@ -14,11 +14,13 @@ from app.services.notification_processor import (
     ProcessingOutcome,
     poll_and_process_messages,
     process_notification_payload,
+    process_received_messages,
 )
 from app.services.notification_service import create_notification
 from app.services.queue import (
     build_notification_job_payload,
     enqueue_notification_delivery,
+    get_sqs_client,
 )
 from tests.helpers import cleanup_user
 from tests.test_schedule_integration import SHIFT_DATE
@@ -225,7 +227,15 @@ def test_schedule_publish_creates_pending_with_sqs_then_sent_after_worker(
     db.commit()
     assert notification.status == NotificationStatus.PENDING
 
-    results = poll_and_process_messages(db, wait_time_seconds=1, max_messages=5)
+    client = get_sqs_client()
+    messages = client.receive_message(
+        QueueUrl=mock_sqs,
+        MaxNumberOfMessages=5,
+        WaitTimeSeconds=0,
+    ).get("Messages", [])
+    assert len(messages) == 1
+
+    results = process_received_messages(db, messages)
     assert len(results) == 1
     assert results[0].outcome == ProcessingOutcome.SENT
 

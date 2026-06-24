@@ -1,8 +1,20 @@
 import os
+from pathlib import Path
 
-# Use a dedicated test database when configured (never hardcode production URLs).
+from dotenv import load_dotenv
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(_BACKEND_ROOT / ".env")
+
+# Prefer a dedicated test DB when configured (see backend/.env.example).
 if os.getenv("TEST_DATABASE_URL"):
     os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+
+if not os.getenv("DATABASE_URL"):
+    raise RuntimeError(
+        "DATABASE_URL or TEST_DATABASE_URL must be set for pytest. "
+        "Copy backend/.env.example to backend/.env and add your Supabase connection string."
+    )
 
 import uuid
 from collections.abc import Generator
@@ -28,7 +40,6 @@ def disable_sqs_in_tests(monkeypatch: pytest.MonkeyPatch):
 
     test_settings = Settings()
     monkeypatch.setattr("app.config.settings", test_settings)
-    monkeypatch.setattr("app.services.queue.settings", test_settings)
     queue_module.get_sqs_client.cache_clear()
 
 
@@ -40,7 +51,6 @@ def no_sqs(monkeypatch: pytest.MonkeyPatch):
 
     test_settings = Settings()
     monkeypatch.setattr("app.config.settings", test_settings)
-    monkeypatch.setattr("app.services.queue.settings", test_settings)
     queue_module.get_sqs_client.cache_clear()
     yield
     queue_module.get_sqs_client.cache_clear()
@@ -64,8 +74,6 @@ def mock_sqs(monkeypatch: pytest.MonkeyPatch):
 
         test_settings = Settings()
         monkeypatch.setattr("app.config.settings", test_settings)
-        monkeypatch.setattr("app.services.queue.settings", test_settings)
-
         queue_module.get_sqs_client.cache_clear()
         yield queue_url
         queue_module.get_sqs_client.cache_clear()

@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app import config
 from app.models.enums import NotificationStatus
 from app.models.notification import Notification
 from app.services.queue import JOB_TYPE_SEND_NOTIFICATION, get_sqs_client, is_sqs_configured
@@ -185,10 +185,30 @@ def process_sqs_message(db: Session, message: dict[str, Any]) -> NotificationPro
     return process_sqs_message_body(db, body)
 
 
+def process_received_messages(
+    db: Session,
+    messages: list[dict[str, Any]],
+) -> list[NotificationProcessResult]:
+    """Process already-received SQS messages without polling the queue."""
+    results: list[NotificationProcessResult] = []
+    for message in messages:
+        result = process_sqs_message(db, message)
+        results.append(result)
+        if result.delete_message:
+            delete_sqs_message(message["ReceiptHandle"])
+        else:
+            logger.warning(
+                "Leaving SQS message on queue notification_id=%s outcome=%s",
+                result.notification_id,
+                result.outcome.value,
+            )
+    return results
+
+
 def delete_sqs_message(receipt_handle: str) -> None:
     client = get_sqs_client()
     client.delete_message(
-        QueueUrl=settings.sqs_notification_queue_url,
+        QueueUrl=config.settings.sqs_notification_queue_url,
         ReceiptHandle=receipt_handle,
     )
     logger.info("Deleted SQS message")
@@ -207,10 +227,11 @@ def poll_and_process_messages(
         )
 
     client = get_sqs_client()
-    queue_url = settings.sqs_notification_queue_url
+    queue_url = config.settings.sqs_notification_queue_url
+    bounded_wait = max(0, min(wait_time_seconds, 20))
     logger.info(
         "Polling queue wait_time_seconds=%s max_messages=%s queue_url=%s",
-        wait_time_seconds,
+        bounded_wait,
         max_messages,
         queue_url,
     )
@@ -218,23 +239,11 @@ def poll_and_process_messages(
     response = client.receive_message(
         QueueUrl=queue_url,
         MaxNumberOfMessages=max_messages,
-        WaitTimeSeconds=wait_time_seconds,
+        WaitTimeSeconds=bounded_wait,
     )
     messages = response.get("Messages", [])
     if not messages:
         logger.info("No messages available")
         return []
 
-    results: list[NotificationProcessResult] = []
-    for message in messages:
-        result = process_sqs_message(db, message)
-        results.append(result)
-        if result.delete_message:
-            delete_sqs_message(message["ReceiptHandle"])
-        else:
-            logger.warning(
-                "Leaving SQS message on queue notification_id=%s outcome=%s",
-                result.notification_id,
-                result.outcome.value,
-            )
-    return results
+    return process_received_messages(db, messages)

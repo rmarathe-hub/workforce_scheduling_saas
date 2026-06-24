@@ -13,8 +13,8 @@ from app.models.enums import NotificationChannel, NotificationStatus, Notificati
 from app.services.notification_processor import (
     ProcessingOutcome,
     process_notification_payload,
+    process_received_messages,
     process_sqs_message_body,
-    poll_and_process_messages,
 )
 from app.services.notification_service import create_notification
 from app.services.queue import (
@@ -78,7 +78,7 @@ def test_enqueue_notification_delivery_sends_message(
     messages = client.receive_message(
         QueueUrl=mock_sqs,
         MaxNumberOfMessages=1,
-        WaitTimeSeconds=1,
+        WaitTimeSeconds=0,
     ).get("Messages", [])
     assert len(messages) == 1
 
@@ -143,7 +143,7 @@ def test_missing_notification_marks_not_found(db: Session) -> None:
     assert result.notification_id == missing_id
 
 
-def test_poll_and_process_messages_drains_queue(
+def test_process_received_queue_message_marks_sent(
     db: Session,
     org_id: str,
     registered_user: dict[str, str],
@@ -162,15 +162,27 @@ def test_poll_and_process_messages_drains_queue(
     db.commit()
     assert notification.status == NotificationStatus.PENDING
 
-    results = poll_and_process_messages(db, wait_time_seconds=1, max_messages=5)
+    client = get_sqs_client()
+    messages = client.receive_message(
+        QueueUrl=mock_sqs,
+        MaxNumberOfMessages=5,
+        WaitTimeSeconds=0,
+    ).get("Messages", [])
+    assert len(messages) == 1
+
+    results = process_received_messages(db, messages)
     assert len(results) == 1
     assert results[0].outcome == ProcessingOutcome.SENT
 
     db.refresh(notification)
     assert notification.status == NotificationStatus.SENT
 
-    second_poll = poll_and_process_messages(db, wait_time_seconds=1, max_messages=5)
-    assert second_poll == []
+    empty = client.receive_message(
+        QueueUrl=mock_sqs,
+        MaxNumberOfMessages=5,
+        WaitTimeSeconds=0,
+    ).get("Messages", [])
+    assert empty == []
 
 
 def test_create_notification_falls_back_without_sqs(
