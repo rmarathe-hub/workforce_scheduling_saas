@@ -196,6 +196,26 @@ npm run test:e2e:smoke
 3. `cd frontend && npm run test:e2e`
 4. Optional deployed: `pytest -m e2e` and `npm run test:e2e:smoke` with env vars above
 
+### GitHub Actions CI (Day 32)
+
+Runs automatically on push/PR to `main`:
+
+| Workflow | What it runs |
+|----------|----------------|
+| `backend-tests.yml` | `alembic upgrade head` + `pytest -m "not e2e and not future"` |
+| `frontend-tests.yml` | `npm ci` + `npm run build` |
+| `playwright-e2e.yml` | Manual only (`workflow_dispatch`) |
+
+**Required GitHub secret** (repo → Settings → Secrets and variables → Actions):
+
+| Secret | Purpose |
+|--------|---------|
+| `TEST_DATABASE_URL` | Supabase Postgres URL for CI test database |
+
+Optional: set `JWT_SECRET_KEY` secret if you prefer not to use the inline CI default in the workflow.
+
+Playwright in CI needs the same `TEST_DATABASE_URL` secret because the suite auto-starts the backend against that database.
+
 Important UI elements use `data-testid` attributes for stable selectors.
 
 ## Async notifications (SQS)
