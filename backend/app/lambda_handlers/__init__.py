@@ -1,1 +1,1 @@
-"""AWS Lambda entry points (skeleton only — deployment not implemented yet)."""
+"""AWS Lambda entry points for async notification delivery."""

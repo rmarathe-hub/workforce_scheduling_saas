@@ -1,0 +1,20 @@
+{
+  "Records": [
+    {
+      "messageId": "19dd0b57-f21d-4ac1-b9ec-29796d407fbe",
+      "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a",
+      "body": "{\"type\":\"SEND_NOTIFICATION\",\"notification_id\":\"00000000-0000-0000-0000-000000000001\",\"organization_id\":\"00000000-0000-0000-0000-000000000002\",\"recipient_user_id\":\"00000000-0000-0000-0000-000000000003\"}",
+      "attributes": {
+        "ApproximateReceiveCount": "1",
+        "SentTimestamp": "1529249845010",
+        "SenderId": "123456789012",
+        "ApproximateFirstReceiveTimestamp": "1529249845011"
+      },
+      "messageAttributes": {},
+      "md5OfBody": "7b270e59b47ff90a553787216d55d91d",
+      "eventSource": "aws:sqs",
+      "eventSourceARN": "arn:aws:sqs:us-east-1:123456789012:shiftops-notifications-queue",
+      "awsRegion": "us-east-1"
+    }
+  ]
+}

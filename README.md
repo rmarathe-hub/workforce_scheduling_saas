@@ -347,17 +347,55 @@ python scripts/process_notifications_once.py
 
 This polls SQS once, processes available messages, marks notifications `SENT`/`FAILED`, deletes successful SQS messages, prints a summary, and exits. Run it after production activity or point it at production env vars from your laptop.
 
-### Future planned setup
+### Lambda SQS consumer (Week 6)
 
-- Replace the manual/local worker with an **AWS Lambda SQS consumer**.
-- Shared processing logic lives in `app/services/notification_processor.py`.
-- Skeleton handler: `app/lambda_handlers/sqs_notification_handler.py` (not deployed yet).
-- No SAM/CDK/Terraform/Lambda packaging has been added yet.
+Production path:
+
+```text
+Render API → SQS → Lambda → Supabase (notification marked SENT)
+```
+
+Handler: `app.lambda_handlers.sqs_notification_handler.handle_sqs_event`
+
+**Build deployment zip (local):**
+
+```bash
+cd backend
+chmod +x scripts/build_lambda_package.sh
+./scripts/build_lambda_package.sh
+```
+
+Output: `backend/dist/lambda_notification_consumer.zip`
+
+**Lambda settings (when you deploy in AWS Console — Day 37–38):**
+
+| Setting | Value |
+|---------|--------|
+| Runtime | Python 3.12 |
+| Handler | `app.lambda_handlers.sqs_notification_handler.handle_sqs_event` |
+| Timeout | 30–60 seconds |
+| Memory | 256–512 MB |
+| Env `DATABASE_URL` | Same Supabase URL as Render |
+| Env `ENVIRONMENT` | `production` |
+| Trigger | SQS `shiftops-notifications-queue` |
+| Event source | Enable **Report batch item failures** |
+
+**Local handler test:**
+
+```bash
+cd backend
+pytest tests/test_lambda_notification_handler.py -q
+python scripts/invoke_lambda_handler_local.py tests/fixtures/sqs_lambda_event.json
+```
+
+Until Lambda is deployed, use `scripts/process_notifications_once.py` or the local worker for demos.
 
 ### Scripts
 
 | Script | Purpose |
 |--------|---------|
+| `scripts/build_lambda_package.sh` | Build `dist/lambda_notification_consumer.zip` for AWS |
+| `scripts/invoke_lambda_handler_local.py` | Invoke handler locally with a JSON SQS event |
 | `scripts/validate_sqs_setup.py` | Verify AWS SQS permissions and queue URL |
 | `scripts/notification_worker.py` | Continuous local/dev worker |
 | `scripts/process_notifications_once.py` | One-shot manual queue processing |

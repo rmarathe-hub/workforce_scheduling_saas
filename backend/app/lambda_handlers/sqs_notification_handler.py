@@ -1,14 +1,4 @@
-"""SQS notification consumer for future AWS Lambda deployment.
-
-This module is a skeleton only. Do not deploy until Lambda packaging/IAM is added.
-
-Future Lambda consumer can call the same notification processing functions used by:
-- backend/scripts/notification_worker.py
-- backend/scripts/process_notifications_once.py
-
-When wired to an SQS trigger, Lambda deletes successful batch items automatically.
-Do not call delete_sqs_message from this handler.
-"""
+"""AWS Lambda SQS consumer for in-app notification delivery."""
 
 from __future__ import annotations
 
@@ -19,25 +9,61 @@ from app.database import SessionLocal
 from app.services.notification_processor import NotificationProcessResult, process_sqs_message
 
 logger = logging.getLogger(__name__)
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
 
 
-def handle_sqs_event(event: dict[str, Any], _context: Any) -> dict[str, Any]:
-    """Lambda handler for SQS trigger events."""
-    records = event.get("Records", [])
-    results: list[NotificationProcessResult] = []
+def _record_message_id(record: dict[str, Any]) -> str:
+    return str(record.get("messageId") or record.get("MessageId") or "")
 
+
+def _record_body(record: dict[str, Any]) -> str:
+    return str(record.get("body") or record.get("Body") or "")
+
+
+def _process_record(record: dict[str, Any]) -> NotificationProcessResult:
+    message_id = _record_message_id(record)
     db = SessionLocal()
     try:
-        for record in records:
-            message = {
-                "Body": record.get("body") or record.get("Body", ""),
-                "MessageId": record.get("messageId") or record.get("MessageId"),
-            }
-            results.append(process_sqs_message(db, message))
+        message = {
+            "Body": _record_body(record),
+            "MessageId": message_id,
+        }
+        result = process_sqs_message(db, message)
+        logger.info(
+            "Processed SQS record message_id=%s outcome=%s notification_id=%s",
+            message_id,
+            result.outcome.value,
+            result.notification_id,
+        )
+        return result
     finally:
         db.close()
 
-    return {
+
+def handle_sqs_event(event: dict[str, Any], _context: Any) -> dict[str, Any]:
+    """Lambda handler for SQS trigger events with partial batch failure support."""
+    records = event.get("Records", [])
+    results: list[NotificationProcessResult] = []
+    batch_item_failures: list[dict[str, str]] = []
+
+    for record in records:
+        message_id = _record_message_id(record)
+        result = _process_record(record)
+        results.append(result)
+        if not result.delete_message:
+            if message_id:
+                batch_item_failures.append({"itemIdentifier": message_id})
+            else:
+                logger.error(
+                    "Cannot report batch item failure without messageId outcome=%s",
+                    result.outcome.value,
+                )
+
+    response: dict[str, Any] = {
         "processed": len(results),
         "outcomes": [result.outcome.value for result in results],
     }
+    if batch_item_failures:
+        response["batchItemFailures"] = batch_item_failures
+    return response
