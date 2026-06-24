@@ -11,7 +11,20 @@ pytestmark = pytest.mark.e2e
 def test_deployed_health(e2e_client: httpx.Client) -> None:
     response = e2e_client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] in ("ok", "degraded")
+    assert data["database"] == "ok"
+    assert isinstance(data["s3_configured"], bool)
+    assert isinstance(data["sqs_configured"], bool)
+    assert "environment" in data
+
+
+def test_deployed_readiness(e2e_client: httpx.Client) -> None:
+    response = e2e_client.get("/readiness")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["database"] == "ok"
 
 
 def test_deployed_register_login_and_me(e2e_client: httpx.Client) -> None:
@@ -137,6 +150,12 @@ def test_deployed_manager_scheduling_flow(e2e_client: httpx.Client) -> None:
     )
     assert assigned.status_code == 200
 
+    published = e2e_client.post(
+        f"/organizations/{org_id}/schedules/{week_start}/publish",
+        headers=headers,
+    )
+    assert published.status_code == 200, published.text
+
     schedule = e2e_client.get(
         f"/organizations/{org_id}/schedules/{week_start}",
         headers=headers,
@@ -170,3 +189,33 @@ def test_deployed_manager_scheduling_flow(e2e_client: httpx.Client) -> None:
         },
     )
     assert blocked.status_code == 403
+
+
+def test_deployed_notifications_endpoint(e2e_client: httpx.Client) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    email = f"e2e-notify+{suffix}@example.com"
+    password = "password123"
+
+    register = e2e_client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "full_name": "E2E Notify",
+            "organization_name": f"Smoke Test Org {suffix}",
+        },
+    )
+    assert register.status_code == 201, register.text
+
+    login = e2e_client.post("/auth/login", json={"email": email, "password": password})
+    assert login.status_code == 200, login.text
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    org_id = e2e_client.get("/organizations/me", headers=headers).json()[0]["organization"]["id"]
+
+    response = e2e_client.get(f"/organizations/{org_id}/notifications/me", headers=headers)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert "items" in data
+    assert "unread_count" in data
+    assert isinstance(data["items"], list)
+    assert data["unread_count"] >= 0

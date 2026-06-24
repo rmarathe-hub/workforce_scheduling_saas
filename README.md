@@ -19,6 +19,7 @@ uvicorn app.main:app --reload
 ### Verify
 
 - Health: http://localhost:8000/health
+- Readiness: http://localhost:8000/readiness
 - API docs: http://localhost:8000/docs
 - Tests: `pytest`
 
@@ -166,35 +167,63 @@ npm run test:e2e
 | `npm run test:e2e` | Full local Playwright suite |
 | `npm run test:e2e:headed` | Run with visible browser |
 | `npm run test:e2e:ui` | Playwright UI mode |
-| `npm run test:e2e:smoke` | Production smoke subset only |
+| `npm run test:e2e:smoke` | Production smoke subset only (alias of `test:e2e:prod`) |
+| `npm run test:e2e:prod` | Production smoke against deployed Vercel frontend |
 | `npm run test:all` | `build` + full E2E |
 
-**Playwright coverage includes:** auth (positive/negative), protected routes, owner setup, coverage, generate, publish, conflicts, employee flows, RBAC (both directions), manager time-off/availability, navigation, and employee-published-shift handoff.
+**Playwright coverage includes:** auth (positive/negative), protected routes, owner setup, coverage, generate, publish, conflicts, employee flows, RBAC (both directions), manager time-off/availability, navigation, employee-published-shift handoff, and production smoke (notifications + documents pages).
 
-### Playwright production smoke
+### Playwright production smoke (Day 33)
 
-Runs against deployed frontend without starting local servers:
+Runs against deployed Vercel + Render without starting local servers. Creates orgs named `Smoke Test Org YYYYMMDD-HHMMSS` so production data is easy to spot.
+
+**Frontend only:**
 
 ```bash
 cd frontend
 export E2E_SMOKE=1
 export E2E_SKIP_WEBSERVER=1
 export E2E_BASE_URL="https://workforce-scheduling-saas.vercel.app"
-npm run test:e2e:smoke
+npm run test:e2e:prod
+```
+
+**API + frontend (full production smoke):**
+
+```bash
+chmod +x scripts/smoke-production.sh   # once
+./scripts/smoke-production.sh
+```
+
+Or run separately:
+
+```bash
+# API smoke
+cd backend
+export E2E_API_BASE_URL="https://workforce-scheduling-api.onrender.com"
+pytest -m e2e
+
+# Frontend smoke
+cd frontend
+export E2E_SMOKE=1 E2E_SKIP_WEBSERVER=1
+export E2E_BASE_URL="https://workforce-scheduling-saas.vercel.app"
+npm run test:e2e:prod
 ```
 
 | Variable | Description |
 |----------|-------------|
-| `E2E_BASE_URL` / `E2E_FRONTEND_URL` | Frontend URL (defaults to `http://localhost:5173`) |
+| `E2E_BASE_URL` / `E2E_FRONTEND_URL` | Deployed frontend URL |
+| `E2E_API_BASE_URL` | Deployed API URL (backend `pytest -m e2e`) |
 | `E2E_SMOKE=1` | Run production smoke project only |
 | `E2E_SKIP_WEBSERVER=1` | Do not auto-start backend/Vite |
+
+**Smoke coverage:** login page, register → manager dashboard, generate + validate schedule, publish + activity log, notifications page (manager + employee), documents pages (manager employee-documents + employee documents).
 
 ### Pre-push checklist
 
 1. `cd backend && pytest -m "not future"`
 2. `cd frontend && npm run build`
 3. `cd frontend && npm run test:e2e`
-4. Optional deployed: `pytest -m e2e` and `npm run test:e2e:smoke` with env vars above
+4. Optional deployed: `./scripts/smoke-production.sh` or `pytest -m e2e` + `npm run test:e2e:prod`
 
 ### GitHub Actions CI (Day 32)
 
@@ -217,6 +246,41 @@ Optional: set `JWT_SECRET_KEY` secret if you prefer not to use the inline CI def
 Playwright in CI needs the same `TEST_DATABASE_URL` secret because the suite auto-starts the backend against that database.
 
 Important UI elements use `data-testid` attributes for stable selectors.
+
+## Observability (Day 34)
+
+### Health and readiness
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /health` | Liveness + config summary (always `200`) |
+| `GET /readiness` | Traffic readiness (`200` when DB is up, `503` when not) |
+
+Example `/health` response:
+
+```json
+{
+  "status": "ok",
+  "database": "ok",
+  "s3_configured": true,
+  "sqs_configured": true,
+  "environment": "production"
+}
+```
+
+- `status` is `degraded` when the database check fails (endpoint still returns `200` for Render liveness).
+- No secrets, AWS keys, or database URLs are exposed.
+- Responses include `X-Request-ID` (echoes client header or generates a UUID).
+
+Set `ENVIRONMENT=production` on Render for accurate `environment` in health checks.
+
+### Structured logging
+
+Important actions log at `INFO`:
+
+- Schedule publish (`publish_service`)
+- S3 document upload complete (`document_service`)
+- SQS notification enqueue (`queue`)
 
 ## Async notifications (SQS)
 

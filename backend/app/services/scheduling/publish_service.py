@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -15,6 +16,8 @@ from app.models.shift import Shift
 from app.services.org_validation import get_week_end
 from app.services.scheduling.conflict_detector import Conflict, ConflictSeverity
 from app.services.scheduling.conflict_service import get_week_conflicts
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,6 +75,13 @@ def publish_week_schedule(
         shift.status = ShiftStatus.PUBLISHED
 
     db.commit()
+
+    logger.info(
+        "Published week schedule organization_id=%s week_start=%s published_shift_count=%s",
+        organization_id,
+        week_start.isoformat(),
+        len(draft_shifts),
+    )
 
     warnings = [
         conflict.message

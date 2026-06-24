@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import HTTPException, status
@@ -29,6 +30,8 @@ from app.services.s3_service import (
     object_exists,
 )
 from app.services.notification_service import notify_managers
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_CONTENT_TYPES = frozenset(
     {
@@ -192,6 +195,15 @@ def complete_document_upload(
         entity_id=document.id,
     )
     db.commit()
+
+    logger.info(
+        "Completed document upload organization_id=%s employee_id=%s document_id=%s size_bytes=%s",
+        organization_id,
+        payload.employee_id,
+        document.id,
+        actual_size,
+    )
+
     return _load_document(db, document.id)
 
 

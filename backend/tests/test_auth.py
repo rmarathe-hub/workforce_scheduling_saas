@@ -4,7 +4,12 @@ from fastapi.testclient import TestClient
 def test_health_check(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] in ("ok", "degraded")
+    assert data["database"] == "ok"
+    assert "s3_configured" in data
+    assert "sqs_configured" in data
+    assert "environment" in data
 
 
 def test_register_succeeds(client: TestClient, db) -> None:

@@ -2,12 +2,18 @@ import { expect, test } from "@playwright/test";
 
 import {
   expectManagerAnalyticsCards,
+  generateWeeklySchedule,
   isProductionSmoke,
+  loginAsEmployee,
+  logout,
+  openEmployeeDocumentsPage,
+  openManagerEmployeeDocumentsPage,
+  openNotificationsPage,
   publishSchedule,
   registerOwner,
   setupGenerateReadySchedule,
+  smokeOrgName,
   validateWeek,
-  generateWeeklySchedule,
 } from "./helpers";
 
 test.describe("production smoke", () => {
@@ -19,13 +25,14 @@ test.describe("production smoke", () => {
   });
 
   test("register and reach manager schedule", async ({ page }) => {
-    await registerOwner(page);
+    await registerOwner(page, { orgName: smokeOrgName() });
     await expect(page.getByTestId("dashboard")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Weekly schedule" })).toBeVisible();
     await expectManagerAnalyticsCards(page);
   });
 
   test("generate and validate schedule on deployed stack", async ({ page }) => {
-    await setupGenerateReadySchedule(page);
+    await setupGenerateReadySchedule(page, 1, { orgName: smokeOrgName() });
     await page.getByTestId("generate-week-button").click();
     await expect(page.getByTestId("generation-summary")).toBeVisible({ timeout: 120_000 });
     await validateWeek(page);
@@ -33,8 +40,10 @@ test.describe("production smoke", () => {
     await expectManagerAnalyticsCards(page);
   });
 
-  test("publish schedule and record activity on deployed stack", async ({ page }) => {
-    await setupGenerateReadySchedule(page);
+  test("publish schedule, activity log, notifications, and documents on deployed stack", async ({
+    page,
+  }) => {
+    const fixture = await setupGenerateReadySchedule(page, 1, { orgName: smokeOrgName() });
     await generateWeeklySchedule(page);
     await validateWeek(page);
     await publishSchedule(page);
@@ -44,5 +53,13 @@ test.describe("production smoke", () => {
     await page.goto("/manager/activity");
     await expect(page.getByTestId("manager-activity-log-page")).toBeVisible();
     await expect(page.getByText("Schedule published")).toBeVisible({ timeout: 60_000 });
+
+    await openNotificationsPage(page);
+    await openManagerEmployeeDocumentsPage(page);
+
+    await logout(page);
+    await loginAsEmployee(page, fixture.employee);
+    await openNotificationsPage(page);
+    await openEmployeeDocumentsPage(page);
   });
 });

@@ -3,6 +3,16 @@ import { expect, type Page } from "@playwright/test";
 export const E2E_PASSWORD = "password123";
 export const isProductionSmoke = process.env.E2E_SMOKE === "1";
 
+/** Unique org name for production smoke runs (e.g. Smoke Test Org 20260623-123456). */
+export function smokeOrgName(): string {
+  const stamp = new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace(/[-:T]/g, "")
+    .replace(/(\d{8})(\d{6})/, "$1-$2");
+  return `Smoke Test Org ${stamp}`;
+}
+
 export function uniqueId(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 10_000)}`;
 }
@@ -141,8 +151,14 @@ export async function completeQuickSetup(
   return { locationName, roleName, employee };
 }
 
-export async function createSchedulingFixture(page: Page): Promise<SchedulingFixture> {
-  const owner = await registerOwner(page);
+export async function createSchedulingFixture(
+  page: Page,
+  options?: { orgName?: string },
+): Promise<SchedulingFixture> {
+  const owner = await registerOwner(
+    page,
+    options?.orgName ? { orgName: options.orgName } : undefined,
+  );
   const setup = await completeQuickSetup(page);
   return { owner, ...setup };
 }
@@ -240,13 +256,34 @@ export async function expectManagerAnalyticsCards(page: Page): Promise<void> {
   await expect(page.getByTestId("analytics-card-coverage_fill_rate")).toBeVisible();
 }
 
-export async function setupGenerateReadySchedule(page: Page, headcount = 1): Promise<SchedulingFixture> {
-  const fixture = await createSchedulingFixture(page);
+export async function setupGenerateReadySchedule(
+  page: Page,
+  headcount = 1,
+  options?: { orgName?: string },
+): Promise<SchedulingFixture> {
+  const fixture = await createSchedulingFixture(page, options);
   await createCoverageRequirement(page, {
     headcount,
     shiftDate: tuesdayOfCurrentWeek(),
   });
   return fixture;
+}
+
+export async function openNotificationsPage(page: Page): Promise<void> {
+  await page.goto("/notifications");
+  await expect(page.getByTestId("notifications-page")).toBeVisible({ timeout: 60_000 });
+}
+
+export async function openEmployeeDocumentsPage(page: Page): Promise<void> {
+  await page.goto("/employee/documents");
+  await expect(page.getByTestId("employee-documents-page")).toBeVisible({ timeout: 60_000 });
+}
+
+export async function openManagerEmployeeDocumentsPage(page: Page): Promise<void> {
+  await page.goto("/manager/employee-documents");
+  await expect(page.getByTestId("manager-employee-documents-page")).toBeVisible({
+    timeout: 60_000,
+  });
 }
 
 export async function setupPublishedSchedule(page: Page): Promise<SchedulingFixture> {

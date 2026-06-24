@@ -14,6 +14,14 @@ from app.config import settings
 PRESIGNED_URL_EXPIRES_SECONDS = 3600
 
 
+def is_s3_configured() -> bool:
+    return bool(
+        settings.aws_access_key_id.strip()
+        and settings.aws_secret_access_key.strip()
+        and settings.s3_bucket_name.strip()
+    )
+
+
 @lru_cache
 def get_s3_client():
     return boto3.client(
