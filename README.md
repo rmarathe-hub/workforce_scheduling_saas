@@ -290,7 +290,7 @@ ShiftOps records in-app notifications in Postgres and optionally delivers them t
 
 1. API action creates a notification row as `PENDING` (when SQS is configured).
 2. API enqueues a `SEND_NOTIFICATION` job to SQS.
-3. A worker consumes the message and marks the notification `SENT`.
+3. A consumer processes the message and marks the notification `SENT` (AWS Lambda in production; local worker in dev).
 4. The bell and `/notifications` page only show `SENT` / `READ` notifications.
 
 ### Fallback when SQS is unavailable
@@ -332,28 +332,37 @@ npm run dev
 
 Trigger an action (publish schedule, approve time off, shift swap, document upload) and confirm the worker logs delivery and the UI shows the notification.
 
-### Production (current setup)
+### Production (deployed)
 
-- The Render API enqueues jobs to SQS when configured.
-- A paid Render Background Worker is **optional and skipped for now** ($7/month).
-- Without a 24/7 worker, notifications may stay `PENDING` until a consumer runs.
+```text
+Vercel → Render API → SQS → Lambda (shiftops-notification-consumer) → Supabase
+```
 
-Manual processing (no always-on worker):
+- The Render API enqueues `SEND_NOTIFICATION` jobs to `shiftops-notifications-queue`.
+- **AWS Lambda** is the production consumer — do **not** run `notification_worker.py` against the production queue.
+- DLQ is configured on the main queue; Lambda uses **Report batch item failures** for retries.
+
+**Validate production (no local worker):**
+
+```bash
+# 1. Confirm local worker is stopped
+pgrep -fl notification_worker || echo "OK — no local worker"
+
+# 2. API + frontend smoke (includes publish → notifications on prod)
+./scripts/smoke-production.sh
+
+# 3. Optional — CloudWatch: Lambda → shiftops-notification-consumer → Monitor → View logs
+#    Look for outcome=SENT after a publish or time-off action
+```
+
+**Emergency / dev fallback** (only if Lambda is down — never run alongside Lambda on the same queue):
 
 ```bash
 cd backend
 python scripts/process_notifications_once.py
 ```
 
-This polls SQS once, processes available messages, marks notifications `SENT`/`FAILED`, deletes successful SQS messages, prints a summary, and exits. Run it after production activity or point it at production env vars from your laptop.
-
-### Lambda SQS consumer (Week 6)
-
-Production path:
-
-```text
-Render API → SQS → Lambda → Supabase (notification marked SENT)
-```
+### Lambda SQS consumer
 
 Handler: `app.lambda_handlers.sqs_notification_handler.handle_sqs_event`
 
@@ -367,18 +376,21 @@ chmod +x scripts/build_lambda_package.sh
 
 Output: `backend/dist/lambda_notification_consumer.zip`
 
-**Lambda settings (when you deploy in AWS Console — Day 37–38):**
+**Lambda settings (AWS Console):**
 
 | Setting | Value |
 |---------|--------|
-| Runtime | Python 3.12 |
+| Function | `shiftops-notification-consumer` |
+| Runtime | Python 3.12 (x86_64) |
 | Handler | `app.lambda_handlers.sqs_notification_handler.handle_sqs_event` |
-| Timeout | 30–60 seconds |
+| Timeout | 60 seconds |
 | Memory | 256–512 MB |
 | Env `DATABASE_URL` | Same Supabase URL as Render |
 | Env `ENVIRONMENT` | `production` |
 | Trigger | SQS `shiftops-notifications-queue` |
-| Event source | Enable **Report batch item failures** |
+| Queue visibility timeout | 120 seconds |
+| Event source | **Report batch item failures** enabled |
+| DLQ | Configured on main queue |
 
 **Local handler test:**
 
@@ -388,7 +400,7 @@ pytest tests/test_lambda_notification_handler.py -q
 python scripts/invoke_lambda_handler_local.py tests/fixtures/sqs_lambda_event.json
 ```
 
-Until Lambda is deployed, use `scripts/process_notifications_once.py` or the local worker for demos.
+After code changes, rebuild the zip and upload a new version in the Lambda console.
 
 ### Scripts
 

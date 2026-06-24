@@ -104,7 +104,10 @@ def main() -> int:
         return 1
 
     print("\nResult: ALL PASSED — SQS setup is ready for notification jobs.")
-    print("Next: run `python scripts/notification_worker.py` in another terminal.")
+    print(
+        "Next: local dev → `python scripts/notification_worker.py`; "
+        "production → AWS Lambda consumes the queue (do not run the local worker)."
+    )
     return 0
 
 
