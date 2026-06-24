@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { ManagerAnalyticsCards } from "../components/ManagerAnalyticsCards";
 import { ManagerSetupPanel } from "../components/ManagerSetupPanel";
 import { addDays, formatDate, formatDayLabel, formatTime, getMonday } from "../shared/dates";
-import { analyticsApi, resourceApi, schedulingApi } from "../shared/services";
+import { analyticsApi, notificationsApi, resourceApi, schedulingApi } from "../shared/services";
 import type {
   Conflict,
   ConflictSeverity,
@@ -103,6 +103,13 @@ export function ManagerSchedulePage() {
     queryKey: ["analytics", orgId, weekStart],
     queryFn: () => analyticsApi.dashboard(orgId, weekStart, token!),
     enabled: Boolean(orgId && token),
+  });
+
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications", orgId],
+    queryFn: () => notificationsApi.list(orgId, token!),
+    enabled: Boolean(orgId && token),
+    refetchInterval: 60_000,
   });
 
   const employeesQuery = useQuery({
@@ -273,6 +280,18 @@ export function ManagerSchedulePage() {
           </Link>
         </div>
       </div>
+
+      {(notificationsQuery.data?.unread_count ?? 0) > 0 && (
+        <div
+          className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+          data-testid="dashboard-notification-summary"
+        >
+          <Link to="/notifications" className="font-medium hover:underline">
+            {notificationsQuery.data?.unread_count} unread notification
+            {(notificationsQuery.data?.unread_count ?? 0) === 1 ? "" : "s"}
+          </Link>
+        </div>
+      )}
 
       <ManagerAnalyticsCards
         analytics={analyticsQuery.data}

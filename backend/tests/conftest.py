@@ -19,6 +19,58 @@ from app.main import app
 from tests.helpers import cleanup_user
 
 
+@pytest.fixture(autouse=True)
+def disable_sqs_in_tests(monkeypatch: pytest.MonkeyPatch):
+    """Keep API notification tests synchronous unless a test opts into mock_sqs."""
+    monkeypatch.setenv("SQS_NOTIFICATION_QUEUE_URL", "")
+    from app.config import Settings
+    from app.services import queue as queue_module
+
+    test_settings = Settings()
+    monkeypatch.setattr("app.config.settings", test_settings)
+    monkeypatch.setattr("app.services.queue.settings", test_settings)
+    queue_module.get_sqs_client.cache_clear()
+
+
+@pytest.fixture
+def no_sqs(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("SQS_NOTIFICATION_QUEUE_URL", "")
+    from app.config import Settings
+    from app.services import queue as queue_module
+
+    test_settings = Settings()
+    monkeypatch.setattr("app.config.settings", test_settings)
+    monkeypatch.setattr("app.services.queue.settings", test_settings)
+    queue_module.get_sqs_client.cache_clear()
+    yield
+    queue_module.get_sqs_client.cache_clear()
+
+
+@pytest.fixture
+def mock_sqs(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+
+    from app.config import Settings
+    from app.services import queue as queue_module
+
+    queue_module.get_sqs_client.cache_clear()
+
+    with mock_aws():
+        client = boto3.client("sqs", region_name="us-east-1")
+        queue_url = client.create_queue(QueueName="shiftops-notifications-queue")["QueueUrl"]
+        monkeypatch.setenv("SQS_NOTIFICATION_QUEUE_URL", queue_url)
+
+        test_settings = Settings()
+        monkeypatch.setattr("app.config.settings", test_settings)
+        monkeypatch.setattr("app.services.queue.settings", test_settings)
+
+        queue_module.get_sqs_client.cache_clear()
+        yield queue_url
+        queue_module.get_sqs_client.cache_clear()
+
+
 @pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")

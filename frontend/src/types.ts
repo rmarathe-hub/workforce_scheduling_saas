@@ -334,6 +334,8 @@ export interface Notification {
   created_at: string;
   sent_at: string | null;
   read_at: string | null;
+  error_message?: string | null;
+  retry_count?: number;
 }
 
 export interface NotificationList {

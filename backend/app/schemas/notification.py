@@ -22,6 +22,8 @@ class NotificationResponse(BaseModel):
     created_at: datetime
     sent_at: datetime | None
     read_at: datetime | None
+    error_message: str | None = None
+    retry_count: int = 0
 
 
 class NotificationListResponse(BaseModel):

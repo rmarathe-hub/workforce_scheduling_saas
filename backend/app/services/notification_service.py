@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date, datetime, timezone
 
@@ -13,6 +14,17 @@ from app.models.enums import MembershipRole, NotificationChannel, NotificationSt
 from app.models.membership import OrganizationMembership
 from app.models.notification import Notification
 from app.models.user import User
+from app.services.queue import JOB_TYPE_SEND_NOTIFICATION, enqueue_notification_delivery
+
+logger = logging.getLogger(__name__)
+
+_VISIBLE_STATUSES = (NotificationStatus.SENT, NotificationStatus.READ)
+
+
+def _mark_notification_sent(notification: Notification) -> None:
+    now = datetime.now(timezone.utc)
+    notification.status = NotificationStatus.SENT
+    notification.sent_at = now
 
 
 def create_notification(
@@ -27,27 +39,54 @@ def create_notification(
     entity_type: str | None = None,
     entity_id: uuid.UUID | None = None,
 ) -> Notification:
-    now = datetime.now(timezone.utc)
-    # Day 29: in-app notifications are immediately available (SQS worker marks SENT in Day 30).
-    initial_status = (
-        NotificationStatus.SENT if channel == NotificationChannel.IN_APP else NotificationStatus.PENDING
-    )
-
     notification = Notification(
         organization_id=organization_id,
         recipient_user_id=recipient_user_id,
         type=notification_type,
         title=title,
         message=message,
-        status=initial_status,
+        status=NotificationStatus.PENDING,
         channel=channel,
         entity_type=entity_type,
         entity_id=entity_id,
-        sent_at=now if initial_status == NotificationStatus.SENT else None,
     )
     db.add(notification)
     db.flush()
+
+    if channel == NotificationChannel.IN_APP:
+        if not enqueue_notification_delivery(notification):
+            logger.warning(
+                "Falling back to immediate in-app delivery notification_id=%s "
+                "(SQS not configured or enqueue failed)",
+                notification.id,
+            )
+            _mark_notification_sent(notification)
+
     return notification
+
+
+def deliver_notification_from_queue(
+    db: Session,
+    notification_id: uuid.UUID,
+) -> Notification | None:
+    """Backward-compatible wrapper around the shared notification processor."""
+    from app.services.notification_processor import (
+        ProcessingOutcome,
+        process_notification_payload,
+    )
+
+    result = process_notification_payload(
+        db,
+        {
+            "type": JOB_TYPE_SEND_NOTIFICATION,
+            "notification_id": str(notification_id),
+        },
+    )
+    if result.notification_id is None:
+        return None
+    if result.outcome == ProcessingOutcome.NOT_FOUND:
+        return None
+    return db.get(Notification, result.notification_id)
 
 
 def _get_org_manager_user_ids(db: Session, organization_id: uuid.UUID) -> list[uuid.UUID]:
@@ -148,6 +187,7 @@ def get_user_notifications(
             .where(
                 Notification.organization_id == organization_id,
                 Notification.recipient_user_id == user.id,
+                Notification.status.in_(_VISIBLE_STATUSES),
             )
             .order_by(Notification.created_at.desc())
         ).all()
@@ -160,7 +200,7 @@ def get_user_notifications(
             Notification.organization_id == organization_id,
             Notification.recipient_user_id == user.id,
             Notification.read_at.is_(None),
-            Notification.status != NotificationStatus.FAILED,
+            Notification.status == NotificationStatus.SENT,
         )
     )
     assert unread_count is not None

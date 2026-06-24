@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     aws_region: str = "us-east-1"
     s3_bucket_name: str = ""
+    sqs_notification_queue_url: str = ""
 
     @property
     def cors_allowed_origins(self) -> list[str]:

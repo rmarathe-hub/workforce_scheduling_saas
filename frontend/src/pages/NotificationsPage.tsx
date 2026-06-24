@@ -24,6 +24,26 @@ function formatTimestamp(iso: string): string {
   });
 }
 
+function notificationStatusLabel(notification: {
+  read_at: string | null;
+  status: string;
+}): string {
+  if (notification.read_at !== null || notification.status === "READ") {
+    return "Read";
+  }
+  return "Unread";
+}
+
+function notificationStatusClass(notification: {
+  read_at: string | null;
+  status: string;
+}): string {
+  if (notification.read_at !== null || notification.status === "READ") {
+    return "bg-slate-200 text-slate-700";
+  }
+  return "bg-blue-600 text-white";
+}
+
 export function NotificationsPage() {
   const { organization, token } = useAuth();
   const queryClient = useQueryClient();
@@ -96,6 +116,12 @@ export function NotificationsPage() {
                     <p className="mt-1 text-sm text-slate-700">{notification.message}</p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${notificationStatusClass(notification)}`}
+                      data-testid="notification-status-badge"
+                    >
+                      {notificationStatusLabel(notification)}
+                    </span>
                     <time className="text-sm text-slate-500">
                       {formatTimestamp(notification.created_at)}
                     </time>

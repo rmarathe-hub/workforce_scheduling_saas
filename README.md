@@ -197,3 +197,95 @@ npm run test:e2e:smoke
 4. Optional deployed: `pytest -m e2e` and `npm run test:e2e:smoke` with env vars above
 
 Important UI elements use `data-testid` attributes for stable selectors.
+
+## Async notifications (SQS)
+
+ShiftOps records in-app notifications in Postgres and optionally delivers them through AWS SQS.
+
+### Flow
+
+1. API action creates a notification row as `PENDING` (when SQS is configured).
+2. API enqueues a `SEND_NOTIFICATION` job to SQS.
+3. A worker consumes the message and marks the notification `SENT`.
+4. The bell and `/notifications` page only show `SENT` / `READ` notifications.
+
+### Fallback when SQS is unavailable
+
+If `SQS_NOTIFICATION_QUEUE_URL` or AWS credentials are missing, the API still creates the notification row and marks it `SENT` immediately so the app keeps working.
+
+### Required env var
+
+```bash
+SQS_NOTIFICATION_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/shiftops-notifications-queue
+```
+
+Also required for enqueue/worker: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`.
+
+Validate setup:
+
+```bash
+cd backend
+python scripts/validate_sqs_setup.py
+```
+
+### Local / dev demo
+
+Run three terminals:
+
+```bash
+# Terminal 1 — worker (continuous polling)
+cd backend
+python scripts/notification_worker.py
+
+# Terminal 2 — API
+cd backend
+uvicorn app.main:app --reload
+
+# Terminal 3 — frontend
+cd frontend
+npm run dev
+```
+
+Trigger an action (publish schedule, approve time off, shift swap, document upload) and confirm the worker logs delivery and the UI shows the notification.
+
+### Production (current setup)
+
+- The Render API enqueues jobs to SQS when configured.
+- A paid Render Background Worker is **optional and skipped for now** ($7/month).
+- Without a 24/7 worker, notifications may stay `PENDING` until a consumer runs.
+
+Manual processing (no always-on worker):
+
+```bash
+cd backend
+python scripts/process_notifications_once.py
+```
+
+This polls SQS once, processes available messages, marks notifications `SENT`/`FAILED`, deletes successful SQS messages, prints a summary, and exits. Run it after production activity or point it at production env vars from your laptop.
+
+### Future planned setup
+
+- Replace the manual/local worker with an **AWS Lambda SQS consumer**.
+- Shared processing logic lives in `app/services/notification_processor.py`.
+- Skeleton handler: `app/lambda_handlers/sqs_notification_handler.py` (not deployed yet).
+- No SAM/CDK/Terraform/Lambda packaging has been added yet.
+
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/validate_sqs_setup.py` | Verify AWS SQS permissions and queue URL |
+| `scripts/notification_worker.py` | Continuous local/dev worker |
+| `scripts/process_notifications_once.py` | One-shot manual queue processing |
+
+### Failure handling (Day 31)
+
+| Scenario | API / DB behavior | SQS message |
+|----------|-------------------|-------------|
+| SQS not configured | Notification marked `SENT` immediately | Not sent |
+| SQS enqueue fails | Notification marked `SENT` immediately (fallback) | Not sent |
+| Invalid queue payload | Logged; message deleted | Deleted |
+| Delivery processing fails | Notification marked `FAILED` with `error_message`, `retry_count` incremented | Deleted |
+| DB unavailable while marking `FAILED` | Notification stays `PENDING` | Left on queue for retry |
+
+Failed deliveries store `error_message` and `retry_count` on the notification row for debugging.
