@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [role, setRole] = useState<MembershipRole | null>(null);
   const [token, setTokenState] = useState<string | null>(getToken());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => getToken() !== null);
 
   const loadSession = useCallback(async (activeToken: string) => {
     const [me, memberships] = await Promise.all([
@@ -63,24 +63,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadSession]);
 
   useEffect(() => {
+    const activeToken = getToken();
+    if (!activeToken) {
+      return;
+    }
+
+    let cancelled = false;
     const init = async () => {
       try {
-        const activeToken = getToken();
-        if (activeToken) {
-          await loadSession(activeToken);
+        await loadSession(activeToken);
+        if (!cancelled) {
           setTokenState(activeToken);
         }
       } catch {
-        clearToken();
-        setUser(null);
-        setOrganization(null);
-        setRole(null);
-        setTokenState(null);
+        if (!cancelled) {
+          clearToken();
+          setUser(null);
+          setOrganization(null);
+          setRole(null);
+          setTokenState(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
     void init();
+    return () => {
+      cancelled = true;
+    };
   }, [loadSession]);
 
   const login = useCallback(

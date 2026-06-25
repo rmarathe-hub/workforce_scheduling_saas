@@ -26,10 +26,10 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/" element={<HomePage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<HomePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
           </Route>
@@ -61,7 +61,7 @@ export function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

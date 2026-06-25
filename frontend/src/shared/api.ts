@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export class ApiError extends Error {
   status: number;
@@ -20,10 +21,24 @@ export async function apiRequest<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      signal: options.signal ?? controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(0, "Request timed out. The API may be waking up — try again.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     let message = "Request failed";
